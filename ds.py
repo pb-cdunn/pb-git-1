@@ -1,14 +1,35 @@
 #!/usr/bin/env python2.7
 import argparse
+import logging
+import pprint
 import sys
 
+logging.basicConfig()
+log = logging.getLogger(__name__)
+
 def run(args):
-    pass
+    logging.getLogger().setLevel(logging.INFO)
+    if args.verbose:
+        logging.getLogger().setLevel(logging.NOTSET)
+    group = open(args.group_file).read()
+    group = eval(group) # N.B. code injection
+    log.info(args)
+    log.info(repr(group))
+    if args.reformat_group_file:
+        with open(args.group_file, 'w') as ifs:
+            ifs.write(pprint.pformat(group) + '\n')
 def main(argv):
-    parser = argparse.ArgumentParser()
-    #parser.add_argument()
+    parser = argparse.ArgumentParser(
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-g', '--group-file',
+            default='conf.py',
+            help='File describing a group of modules')
+    parser.add_argument('-v', '--verbose',
+            action='store_true')
+    parser.add_argument('-r', '--reformat-group-file',
+            action='store_true',
+            help='Canonicalize the group-file. Then proceed.')
     args = parser.parse_args(argv[1:])
-    print args
     run(args)
 
 main(sys.argv)
