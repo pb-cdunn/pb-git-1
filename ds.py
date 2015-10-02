@@ -129,7 +129,10 @@ def submit(args):
     mout.write('{}\n'.format(args.message))
     mout.write('bug #{}\n'.format(args.bug))
     mout.write('\n')
-    fsystem = log.info
+    if args.dry_run:
+        p4system = log.info
+    else:
+        p4system = system
     with cd(args.directory):
         n = 0
         for fnnew in glob.glob('*.ini.bak'):
@@ -148,12 +151,12 @@ def submit(args):
             compare_link = 'https://github.com/{}/{}/compare/{}...{}'.format(
                 gh_user, gh_repo, sha1old, sha1new)
             mout.write('{}\n'.format(compare_link))
-            fsystem('p4 edit {}'.format(fnold))
-            fsystem('cp -f {} {}'.format(fnnew, fnold))
+            p4system('p4 edit {}'.format(fnold))
+            p4system('cp -f {} {}'.format(fnnew, fnold))
             n += 1
-        fsystem('p4 revert -a ...')
+        p4system('p4 revert -a ...')
         msg = mout.getvalue()
-        fsystem('p4 submit -c {} -d "{}"'.format(
+        p4system('p4 submit -c {} -d "{}"'.format(
             args.change, msg))
         if n == 0:
             return
@@ -264,6 +267,10 @@ def main(argv):
     p.add_argument('-m', '--message',
             default='Updating SHA1s.',
             help='Brief message at top of submit description. Bug # and github links will be added.',
+            )
+    p.add_argument('-n', '--dry-run',
+            action='store_true',
+            help='Do not actually run any p4 commands.',
             )
     p.set_defaults(func=submit)
     args = parser.parse_args(argv[1:])
