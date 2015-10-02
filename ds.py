@@ -91,7 +91,7 @@ def capture(call):
  64d08e363e88b9356b587f2524fdc299a61d0791 pith (remotes/origin/HEAD)
  ...
 """
-def map_commits(listing):
+def map_sha1s(listing):
     d = dict()
     re_lines = re.compile(r'\s*(?P<sha1>\w+)\s+(?P<name>\S+)')
     for mo in re_lines.finditer(listing):
@@ -102,7 +102,15 @@ def map_commits(listing):
 def get_submodule_sha1s(d):
     with cd(d):
         listing = capture('git submodule')
-        log.info(map_commits(listing))
+        return map_sha1s(listing)
+def write_repo_config(fp, cfg):
+    section = 'general'
+    cp = configparser.ConfigParser()
+    if not cp.has_section(section):
+        cp.add_section(section)
+    for key, val in cfg.iteritems():
+        cp.set(section, key, val)
+    cp.write(fp)
 def convert(args):
     init(args)
     log.info(args.gitmodules)
@@ -121,7 +129,17 @@ def convert(args):
         items = cp.items(sec)
         repos[name] = dict(items)
     log.info(repr(repos))
-    get_submodule_sha1s(directory)
+    sha1s = get_submodule_sha1s(directory)
+    assert sorted(sha1s.keys()) == sorted(repos.keys())
+    for name, sha1 in sha1s.iteritems():
+        repos[name]['sha1now'] = sha1
+        repos[name]['sha1pre'] = sha1
+    log.info(pprint.pformat(repos))
+    for name, cfg in repos.iteritems():
+        fn = os.path.join(directory, '{}.ini'.format(name))
+        log.info('Writing {}'.format(fn))
+        with open(fn, 'w') as fp:
+            write_repo_config(fp, cfg)
 def main(argv):
     parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
