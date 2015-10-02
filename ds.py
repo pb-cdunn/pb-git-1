@@ -27,11 +27,12 @@ def cd(newdir):
         yield
     finally:
         os.chdir(prevdir)
-def system(call):
+def system(call, checked=True):
     log.info(call)
     rc = os.system(call)
-    if rc:
+    if rc and checked:
         raise Exception('{rc} <- {call!r}'.format(rc=rc, call=call))
+    return rc
 def capture(call):
     log.info('`{}`'.format(call))
     return subprocess.check_output(shlex.split(call))
@@ -94,8 +95,8 @@ def checkout(args):
             checkout_repo(cfg)
 def prepare(args):
     """
-    This has p4 interactions.
-    Run 'p4 edit' on each file that needs to be changed.
+    Create *.ini.bak.
+    TODO: Only create if different.
     """
     init(args)
     with cd(args.directory):
@@ -103,15 +104,59 @@ def prepare(args):
         for name, cfg in repos.iteritems():
             path = cfg['path']
             with cd(path):
-                sha1 = capture('git rev-parse HEAD').strip()
-                log.info('{} {} {}'.format(sha1, name, path))
+                sha1new = capture('git rev-parse HEAD').strip()
+                log.debug('{} {} {}'.format(sha1new, name, path))
+                if sha1new == cfg['sha1now']:
+                    continue
+                sha1old = cfg['sha1now']
+                cfg['sha1now'] = sha1new
             log.info(os.getcwd())
             log.info(name)
             assert os.path.exists(name + '.ini')
             prepared = name + '.ini.bak'
             with open(prepared, 'w') as fp:
                 write_repo_config(fp, cfg)
-
+def submit(args):
+    """
+    This has p4 interactions.
+      'p4 edit' on each file that needs to be changed.
+      'p4 revert -a'
+      'p4 submit'
+    TODO: Finally remove old *.ini.bak?
+    """
+    init(args)
+    mout = StringIO.StringIO()
+    mout.write('{}\n'.format(args.message))
+    mout.write('bug #{}\n'.format(args.bug))
+    mout.write('\n')
+    fsystem = log.info
+    with cd(args.directory):
+        n = 0
+        for fnnew in glob.glob('*.ini.bak'):
+            fnold = fnnew[:-4]
+            if not system('diff -qw {} {}'.format(fnnew, fnold), checked=False):
+                log.info("SAME!")
+                continue
+            with open(fnold) as fp:
+                cfgold = read_repo_config(fp)
+            with open(fnnew) as fp:
+                cfgnew = read_repo_config(fp)
+            sha1old = cfgold['sha1now']
+            sha1new = cfgnew['sha1now']
+            gh_user = 'PacificBiosciences' #TODO: Sometimes this is wrong.
+            gh_repo = fnold[:-4] # Probably?
+            compare_link = 'https://github.com/{}/{}/compare/{}...{}'.format(
+                gh_user, gh_repo, sha1old, sha1new)
+            mout.write('{}\n'.format(compare_link))
+            fsystem('p4 edit {}'.format(fnold))
+            fsystem('cp -f {} {}'.format(fnnew, fnold))
+            n += 1
+        fsystem('p4 revert -a ...')
+        msg = mout.getvalue()
+        fsystem('p4 submit -c {} -d "{}"'.format(
+            args.change, msg))
+        if n == 0:
+            return
 def map_sha1s(listing):
     """
     Example:
@@ -172,7 +217,6 @@ def convert(args):
     assert sorted(sha1s.keys()) == sorted(repos.keys())
     for name, sha1 in sha1s.iteritems():
         repos[name]['sha1now'] = sha1
-        repos[name]['sha1pre'] = sha1
     log.info(pprint.pformat(repos))
     rename(directory, directory + '.bak')
     mkdirs(directory)
@@ -217,7 +261,11 @@ def main(argv):
             default='999999',
             help='Bugzilla number.',
             )
-    #p.set_defaults(func=submit)
+    p.add_argument('-m', '--message',
+            default='Updating SHA1s.',
+            help='Brief message at top of submit description. Bug # and github links will be added.',
+            )
+    p.set_defaults(func=submit)
     args = parser.parse_args(argv[1:])
     args.func(args)
 
