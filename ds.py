@@ -127,7 +127,8 @@ def convert(args):
         log.info(sec)
         name = re_name.search(sec).group(1)
         items = cp.items(sec)
-        repos[name] = dict(items)
+        data = dict(items)
+        repos[name] = data
     log.info(repr(repos))
     sha1s = get_submodule_sha1s(directory)
     assert sorted(sha1s.keys()) == sorted(repos.keys())
@@ -135,6 +136,8 @@ def convert(args):
         repos[name]['sha1now'] = sha1
         repos[name]['sha1pre'] = sha1
     log.info(pprint.pformat(repos))
+    os.rename(directory, directory + '.bak')
+    mkdirs(directory)
     for name, cfg in repos.iteritems():
         fn = os.path.join(directory, '{}.ini'.format(name))
         log.info('Writing {}'.format(fn))
