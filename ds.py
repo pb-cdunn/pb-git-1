@@ -49,11 +49,17 @@ def get_ini(conf):
     return dict(cp.items('default'))
 def get_sha1(ini):
     return ini['commit']
+def mkdirs(d):
+    if not os.path.isdir(d):
+        log.info('mkdir -p {}'.format(d))
+        os.makedirs(d)
 def checkout_repo(conf):
     log.info(conf)
     d = conf['dir']
     if not os.path.exists(d):
-        with cd(os.path.dirname(os.path.abspath(d))):
+        parent = os.path.dirname(os.path.abspath(d))
+        mkdirs(parent)
+        with cd(parent):
             system('git clone {}'.format(conf['remote']))
     ini = get_ini(conf)
     log.info(ini)
