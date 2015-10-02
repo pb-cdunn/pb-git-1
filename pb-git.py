@@ -228,6 +228,8 @@ def convert(args):
         log.info('Writing {}'.format(fn))
         with open(fn, 'w') as fp:
             write_repo_config(fp, cfg)
+    with cd(directory):
+        system('p4 add *.ini')
 def main(argv):
     parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
