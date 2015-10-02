@@ -1,7 +1,12 @@
 #!/usr/bin/env python2.7
+"""
+We use a separate file for each module b/c that makes them easier to
+update in p4.
+"""
 from contextlib import contextmanager
 import argparse
 import ConfigParser as configparser
+import glob
 import logging
 import os
 import pprint
@@ -27,6 +32,9 @@ def system(call):
     rc = os.system(call)
     if rc:
         raise Exception('{rc} <- {call!r}'.format(rc=rc, call=call))
+def capture(call):
+    log.info('`{}`'.format(call))
+    return subprocess.check_output(shlex.split(call))
 def gitmodules_as_config(content):
     re_initial_ws = re.compile('^\s*(.*)$', re.MULTILINE)
     config = re_initial_ws.sub(r'\1', content)
@@ -37,32 +45,37 @@ def init(args):
     logging.getLogger().setLevel(logging.DEBUG)
     if args.verbose:
         logging.getLogger().setLevel(logging.NOTSET)
-    directory = os.path.dirname(os.path.abspath(args.group_file))
-    group = open(args.group_file).read()
-    group = eval(group) # N.B. code injection
-    if args.reformat_group_file:
-        with open(args.group_file, 'w') as ifs:
-            ifs.write(pprint.pformat(group) + '\n')
-    log.info(args.func)
-    log.info(args)
-    log.info(repr(group['repos']))
-    return group, directory
-def prepend_section(fp, name='default'):
-    content = fp.read()
-    return StringIO.StringIO('[{name}]\n'.format(name=name) + content)
-def get_ini(conf):
-    fp = open(conf['ini'])
-    sfp = prepend_section(fp)
-    cp = configparser.ConfigParser()
-    cp.readfp(sfp)
-    log.info(cp.items('default'))
-    return dict(cp.items('default'))
-def get_sha1(ini):
-    return ini['commit']
 def mkdirs(d):
     if not os.path.isdir(d):
         log.info('mkdir -p {}'.format(d))
         os.makedirs(d)
+def write_repo_config(fp, cfg, section='general'):
+    """Write dict 'cfg' into section of ConfigParser file.
+    """
+    cp = configparser.ConfigParser()
+    if not cp.has_section(section):
+        cp.add_section(section)
+    for key, val in cfg.iteritems():
+        cp.set(section, key, val)
+    cp.write(fp)
+def read_repo_config(fp, section='general'):
+    """Return dict.
+    Opposite of write_repo_config().
+    """
+    cp = configparser.ConfigParser()
+    cp.readfp(fp)
+    return dict(cp.items(section))
+def read_modules():
+    """Read all .ini from cwd.
+    Return dict(name: config).
+    """
+    repos = dict()
+    for name in glob.glob('*.ini'):
+        log.info(name)
+        cfg = read_repo_config(open(name))
+        log.debug(cfg)
+        repos[name] = cfg
+    return repos
 def checkout_repo(conf):
     log.info(conf)
     d = conf['path']
@@ -71,20 +84,16 @@ def checkout_repo(conf):
         mkdirs(parent)
         with cd(parent):
             system('git clone {}'.format(conf['url']))
-    ini = get_ini(conf)
-    log.info(ini)
-    sha1 = get_sha1(ini)
+    sha1 = conf['sha1now']
     with cd(d):
-        system('git checkout {}'.format(sha1))
+        system('git checkout -q {}'.format(sha1))
 def checkout(args):
-    group, directory = init(args)
-    with cd(directory):
-        # Directories are relative to the location of group_file, for now.
-        for repo, repo_conf in group['repos'].iteritems():
-            checkout_repo(repo_conf)
-def capture(call):
-    log.info('`{}`'.format(call))
-    return subprocess.check_output(shlex.split(call))
+    init(args)
+    with cd(args.directory):
+        # Directories are relative to the location of ini files, for now.
+        repos = read_modules()
+        for repo, cfg in repos.iteritems():
+            checkout_repo(cfg)
 """
  5d527739295c82bf4a141532d61019b9d155cc99 DALIGNER (heads/master)
  3e2231218d94f1f2a9083ae5695fb0d888b3e405 FALCON (0.2JASM-261-g3e22312)
@@ -103,23 +112,26 @@ def get_submodule_sha1s(d):
     with cd(d):
         listing = capture('git submodule')
         return map_sha1s(listing)
-def write_repo_config(fp, cfg):
-    section = 'general'
-    cp = configparser.ConfigParser()
-    if not cp.has_section(section):
-        cp.add_section(section)
-    for key, val in cfg.iteritems():
-        cp.set(section, key, val)
-    cp.write(fp)
+def rename(old, new):
+    log.info('Moving "{}" to "{}"'.format(old, new))
+    os.rename(old, new)
 def convert(args):
+    """Using .git and .gitmodules from args.directory,
+    write *.ini for each submodule, after moving
+    original directory to .bak and re-creating.
+
+    This is used only to convert our old submodules to this system.
+    Note that 'pb-sync' should be run first.
+    """
     init(args)
-    log.info(args.gitmodules)
     group = dict()
     repos = dict()
     group['repos'] = repos
     # For now, require full path to '.gitmodules'.
-    directory = os.path.dirname(os.path.abspath(args.gitmodules))
-    fp = StringIO.StringIO(gitmodules_as_config(open(args.gitmodules).read()))
+    directory = os.path.abspath(args.directory)
+    gitmodules = os.path.join(directory, '.gitmodules')
+    log.info('Converting from "{}"...'.format(gitmodules))
+    fp = StringIO.StringIO(gitmodules_as_config(open(gitmodules).read()))
     cp = configparser.ConfigParser()
     cp.readfp(fp)
     re_name = re.compile(r'submodule "(.*)"')
@@ -136,7 +148,7 @@ def convert(args):
         repos[name]['sha1now'] = sha1
         repos[name]['sha1pre'] = sha1
     log.info(pprint.pformat(repos))
-    os.rename(directory, directory + '.bak')
+    rename(directory, directory + '.bak')
     mkdirs(directory)
     for name, cfg in repos.iteritems():
         fn = os.path.join(directory, '{}.ini'.format(name))
@@ -146,14 +158,11 @@ def convert(args):
 def main(argv):
     parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--group-file',
-            default='conf.py',
-            help='File describing a group of modules')
+    parser.add_argument('-d', '--directory',
+            default='.',
+            help='Directory of submodules')
     parser.add_argument('-v', '--verbose',
             action='store_true')
-    parser.add_argument('-r', '--reformat-group-file',
-            action='store_true',
-            help='Canonicalize the group-file. Then proceed.')
     subparsers = parser.add_subparsers()
     p = subparsers.add_parser('checkout',
             #aliases=['co'],
@@ -162,8 +171,6 @@ def main(argv):
     p = subparsers.add_parser('convert',
             help='Convert .gitmodules to this system.',
             )
-    p.add_argument('-g', '--gitmodules',
-            help='Path to .gitmodules file')
     p.set_defaults(func=convert)
     args = parser.parse_args(argv[1:])
     args.func(args)
