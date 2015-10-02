@@ -7,6 +7,8 @@ import sys
 logging.basicConfig()
 log = logging.getLogger(__name__)
 
+def sync_repo(conf):
+    log.info(conf)
 def run(args):
     logging.getLogger().setLevel(logging.INFO)
     if args.verbose:
@@ -18,6 +20,8 @@ def run(args):
     if args.reformat_group_file:
         with open(args.group_file, 'w') as ifs:
             ifs.write(pprint.pformat(group) + '\n')
+    for repo, repo_conf in group['repos'].iteritems():
+        sync_repo(repo_conf)
 def main(argv):
     parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
