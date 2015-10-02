@@ -83,7 +83,7 @@ def checkout_repo(conf):
         mkdirs(parent)
         with cd(parent):
             system('git clone {}'.format(conf['url']))
-    sha1 = conf['sha1now']
+    sha1 = conf['sha1']
     with cd(d):
         system('git checkout -q {}'.format(sha1))
 def checkout(args):
@@ -106,10 +106,10 @@ def prepare(args):
             with cd(path):
                 sha1new = capture('git rev-parse HEAD').strip()
                 log.debug('{} {} {}'.format(sha1new, name, path))
-                if sha1new == cfg['sha1now']:
+                if sha1new == cfg['sha1']:
                     continue
-                sha1old = cfg['sha1now']
-                cfg['sha1now'] = sha1new
+                sha1old = cfg['sha1']
+                cfg['sha1'] = sha1new
             log.info(os.getcwd())
             log.info(name)
             assert os.path.exists(name + '.ini')
@@ -144,8 +144,8 @@ def submit(args):
                 cfgold = read_repo_config(fp)
             with open(fnnew) as fp:
                 cfgnew = read_repo_config(fp)
-            sha1old = cfgold['sha1now']
-            sha1new = cfgnew['sha1now']
+            sha1old = cfgold['sha1']
+            sha1new = cfgnew['sha1']
             gh_user = 'PacificBiosciences' #TODO: Sometimes this is wrong.
             gh_repo = fnold[:-4] # Probably?
             compare_link = 'https://github.com/{}/{}/compare/{}...{}'.format(
@@ -219,7 +219,7 @@ def convert(args):
     sha1s = get_submodule_sha1s(directory)
     assert sorted(sha1s.keys()) == sorted(repos.keys())
     for name, sha1 in sha1s.iteritems():
-        repos[name]['sha1now'] = sha1
+        repos[name]['sha1'] = sha1
     log.info(pprint.pformat(repos))
     rename(directory, directory + '.bak')
     mkdirs(directory)
