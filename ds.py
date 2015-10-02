@@ -35,12 +35,9 @@ def system(call):
 def capture(call):
     log.info('`{}`'.format(call))
     return subprocess.check_output(shlex.split(call))
-def gitmodules_as_config(content):
-    re_initial_ws = re.compile('^\s*(.*)$', re.MULTILINE)
-    config = re_initial_ws.sub(r'\1', content)
-    log.info(config)
-    return config
-
+def rename(old, new):
+    log.info('Moving "{}" to "{}"'.format(old, new))
+    os.rename(old, new)
 def init(args):
     logging.getLogger().setLevel(logging.DEBUG)
     if args.verbose:
@@ -70,10 +67,11 @@ def read_modules():
     Return dict(name: config).
     """
     repos = dict()
-    for name in glob.glob('*.ini'):
-        log.info(name)
-        cfg = read_repo_config(open(name))
+    for fn in glob.glob('*.ini'):
+        log.info(fn)
+        cfg = read_repo_config(open(fn))
         log.debug(cfg)
+        name = fn[:-4]
         repos[name] = cfg
     return repos
 def checkout_repo(conf):
@@ -94,13 +92,36 @@ def checkout(args):
         repos = read_modules()
         for repo, cfg in repos.iteritems():
             checkout_repo(cfg)
-"""
- 5d527739295c82bf4a141532d61019b9d155cc99 DALIGNER (heads/master)
- 3e2231218d94f1f2a9083ae5695fb0d888b3e405 FALCON (0.2JASM-261-g3e22312)
- 64d08e363e88b9356b587f2524fdc299a61d0791 pith (remotes/origin/HEAD)
- ...
-"""
+def prepare(args):
+    """
+    This has p4 interactions.
+    Run 'p4 edit' on each file that needs to be changed.
+    """
+    init(args)
+    with cd(args.directory):
+        repos = read_modules()
+        for name, cfg in repos.iteritems():
+            path = cfg['path']
+            with cd(path):
+                sha1 = capture('git rev-parse HEAD').strip()
+                log.info('{} {} {}'.format(sha1, name, path))
+            log.info(os.getcwd())
+            log.info(name)
+            assert os.path.exists(name + '.ini')
+            prepared = name + '.ini.bak'
+            with open(prepared, 'w') as fp:
+                write_repo_config(fp, cfg)
+
 def map_sha1s(listing):
+    """
+    Example:
+    5d527739295c82bf4a141532d61019b9d155cc99 DALIGNER (heads/master)
+    3e2231218d94f1f2a9083ae5695fb0d888b3e405 FALCON (0.2JASM-261-g3e22312)
+    64d08e363e88b9356b587f2524fdc299a61d0791 pith (remotes/origin/HEAD)
+    ...
+
+    => {'DALIGNER': '5d527739295c82bf4a141532d61019b9d155cc99', ...}
+    """
     d = dict()
     re_lines = re.compile(r'\s*(?P<sha1>\w+)\s+(?P<name>\S+)')
     for mo in re_lines.finditer(listing):
@@ -112,9 +133,14 @@ def get_submodule_sha1s(d):
     with cd(d):
         listing = capture('git submodule')
         return map_sha1s(listing)
-def rename(old, new):
-    log.info('Moving "{}" to "{}"'.format(old, new))
-    os.rename(old, new)
+def gitmodules_as_config(content):
+    """Turn the .gitmodules file (content)
+    into a valid ConfigParser file.
+    """
+    re_initial_ws = re.compile('^\s*(.*)$', re.MULTILINE)
+    config = re_initial_ws.sub(r'\1', content)
+    log.info(config)
+    return config
 def convert(args):
     """Using .git and .gitmodules from args.directory,
     write *.ini for each submodule, after moving
@@ -164,14 +190,34 @@ def main(argv):
     parser.add_argument('-v', '--verbose',
             action='store_true')
     subparsers = parser.add_subparsers()
+
     p = subparsers.add_parser('checkout',
             #aliases=['co'],
             )
     p.set_defaults(func=checkout)
+
     p = subparsers.add_parser('convert',
             help='Convert .gitmodules to this system.',
             )
     p.set_defaults(func=convert)
+
+    p = subparsers.add_parser('prepare',
+            help='Prepare to submit the current changes, staged as *.ini.bak files.',
+            )
+    p.set_defaults(func=prepare)
+
+    p = subparsers.add_parser('submit',
+            help='Submit the prepared changes (*.ini.bak).',
+            )
+    p.add_argument('-c', '--change',
+            default='default',
+            help='Perforce changenum. Use this to avoid submitting your currently opened files.',
+            )
+    p.add_argument('-b', '--bug',
+            default='999999',
+            help='Bugzilla number.',
+            )
+    #p.set_defaults(func=submit)
     args = parser.parse_args(argv[1:])
     args.func(args)
 
