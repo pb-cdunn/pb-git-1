@@ -85,7 +85,11 @@ def checkout_repo(conf):
             system('git clone {} {}'.format(conf['url'], conf['path']))
     sha1 = conf['sha1']
     with cd(d):
-        system('git checkout -q {}'.format(sha1))
+        try:
+            system('git checkout -q {}'.format(sha1))
+        except Exception:
+            system('git fetch origin')
+            system('git checkout -q {}'.format(sha1))
 def checkout(args):
     init(args)
     with cd(args.directory):
