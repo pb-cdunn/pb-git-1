@@ -82,7 +82,7 @@ def checkout_repo(conf):
         parent = os.path.dirname(os.path.abspath(d))
         mkdirs(parent)
         with cd(parent):
-            system('git clone {}'.format(conf['url']))
+            system('git clone {} {}'.format(conf['url'], conf['path']))
     sha1 = conf['sha1']
     with cd(d):
         system('git checkout -q {}'.format(sha1))
