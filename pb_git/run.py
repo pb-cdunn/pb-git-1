@@ -1,51 +1,61 @@
 """
+We expect to see a foo.ini file for every repo 'foo'.
+
 We use a separate file for each module b/c that makes them easier to
 update in p4.
 """
 from contextlib import contextmanager
-import collections
 import ConfigParser as configparser
 import glob
 import logging
 import os
-import pprint
-import re
 import shlex
 import StringIO
 import subprocess
 import sys
 
-logging.basicConfig()
 log = logging.getLogger(__name__)
+cd_depth = 0
 
 @contextmanager
 def cd(newdir):
     prevdir = os.getcwd()
+    log.debug("[{}]cd '{}' from '{}'".format(cd_depth, newdir, prevdir))
     os.chdir(os.path.expanduser(newdir))
+    cd_depth += 1
     try:
         yield
     finally:
+        cd_depth -= 1
+        log.debug("[{}]cd '{}' from '{}'".format(depth, newdir, prevdir))
         os.chdir(prevdir)
+
 def system(call, checked=True):
     log.info(call)
     rc = os.system(call)
     if rc and checked:
         raise Exception('{rc} <- {call!r}'.format(rc=rc, call=call))
     return rc
+
 def capture(call):
     log.info('`{}`'.format(call))
     return subprocess.check_output(shlex.split(call))
+
 def rename(old, new):
     log.info('Moving "{}" to "{}"'.format(old, new))
     os.rename(old, new)
+
 def init(args):
+    logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
     if args.verbose:
         logging.getLogger().setLevel(logging.NOTSET)
+
 def mkdirs(d):
     if not os.path.isdir(d):
         log.info('mkdir -p {}'.format(d))
         os.makedirs(d)
+
 def write_repo_config(fp, cfg, section='general'):
     """Write dict 'cfg' into section of ConfigParser file.
     """
@@ -55,6 +65,7 @@ def write_repo_config(fp, cfg, section='general'):
     for key, val in sorted(cfg.iteritems()):
         cp.set(section, key, val)
     cp.write(fp)
+
 def read_repo_config(fp, section='general'):
     """Return dict.
     Opposite of write_repo_config().
@@ -62,6 +73,7 @@ def read_repo_config(fp, section='general'):
     cp = configparser.ConfigParser()
     cp.readfp(fp)
     return dict(cp.items(section))
+
 def read_modules():
     """Read all .ini from cwd.
     Return dict(name: config).
@@ -74,6 +86,7 @@ def read_modules():
         name = fn[:-4]
         repos[name] = cfg
     return repos
+
 def checkout_repo(conf):
     log.info(conf)
     d = conf['path']
@@ -89,6 +102,7 @@ def checkout_repo(conf):
         except Exception:
             system('git fetch origin')
             system('git checkout -q {}'.format(sha1))
+
 def checkout(args):
     init(args)
     with cd(args.directory):
@@ -96,6 +110,7 @@ def checkout(args):
         repos = read_modules()
         for repo, cfg in repos.iteritems():
             checkout_repo(cfg)
+
 def prepare(args):
     """
     Create *.ini.bak.
@@ -113,12 +128,11 @@ def prepare(args):
                     continue
                 sha1old = cfg['sha1']
                 cfg['sha1'] = sha1new
-            log.info(os.getcwd())
-            log.info(name)
             assert os.path.exists(name + '.ini')
             prepared = name + '.ini.bak'
             with open(prepared, 'w') as fp:
                 write_repo_config(fp, cfg)
+
 def submit(args):
     """
     This has p4 interactions.
@@ -141,7 +155,6 @@ def submit(args):
         for fnnew in glob.glob('*.ini.bak'):
             fnold = fnnew[:-4]
             if not system('diff -qw {} {}'.format(fnnew, fnold), checked=False):
-                log.info("SAME!")
                 continue
             with open(fnold) as fp:
                 cfgold = read_repo_config(fp)
@@ -163,74 +176,3 @@ def submit(args):
             args.change, msg))
         if n == 0:
             return
-def map_sha1s(listing):
-    """
-    Example:
-    5d527739295c82bf4a141532d61019b9d155cc99 DALIGNER (heads/master)
-    3e2231218d94f1f2a9083ae5695fb0d888b3e405 FALCON (0.2JASM-261-g3e22312)
-    64d08e363e88b9356b587f2524fdc299a61d0791 pith (remotes/origin/HEAD)
-    ...
-
-    => {'DALIGNER': '5d527739295c82bf4a141532d61019b9d155cc99', ...}
-    """
-    d = dict()
-    re_lines = re.compile(r'\s*(?P<sha1>\w+)\s+(?P<name>\S+)')
-    for mo in re_lines.finditer(listing):
-        log.info(repr(mo.groups()))
-        name, sha1 = mo.group('name', 'sha1')
-        d[name] = sha1
-    return d
-def get_submodule_sha1s(d):
-    with cd(d):
-        listing = capture('git submodule')
-        return map_sha1s(listing)
-def gitmodules_as_config(content):
-    """Turn the .gitmodules file (content)
-    into a valid ConfigParser file.
-    """
-    re_initial_ws = re.compile('^\s*(.*)$', re.MULTILINE)
-    config = re_initial_ws.sub(r'\1', content)
-    log.info(config)
-    return config
-def convert(args):
-    """Using .git and .gitmodules from args.directory,
-    write *.ini for each submodule, after moving
-    original directory to .bak and re-creating.
-
-    This is used only to convert our old submodules to this system.
-    Note that 'pb-sync' should be run first.
-    """
-    init(args)
-    group = dict()
-    repos = dict()
-    group['repos'] = repos
-    # For now, require full path to '.gitmodules'.
-    directory = os.path.abspath(args.directory)
-    gitmodules = os.path.join(directory, '.gitmodules')
-    log.info('Converting from "{}"...'.format(gitmodules))
-    fp = StringIO.StringIO(gitmodules_as_config(open(gitmodules).read()))
-    cp = configparser.ConfigParser()
-    cp.readfp(fp)
-    re_name = re.compile(r'submodule "(.*)"')
-    for sec in cp.sections():
-        log.info(sec)
-        name = re_name.search(sec).group(1)
-        items = cp.items(sec)
-        data = dict(items)
-        repos[name] = data
-    log.info(repr(repos))
-    sha1s = get_submodule_sha1s(directory)
-    assert sorted(sha1s.keys()) == sorted(repos.keys())
-    for name, sha1 in sha1s.iteritems():
-        repos[name]['sha1'] = sha1
-    log.info(pprint.pformat(repos))
-    rename(directory, directory + '.bak')
-    mkdirs(directory)
-    for name, cfg in repos.iteritems():
-        fn = os.path.join(directory, '{}.ini'.format(name))
-        log.info('Writing {}'.format(fn))
-        with open(fn, 'w') as fp:
-            write_repo_config(fp, cfg)
-    with cd(directory):
-        system('p4 add *.ini')
-

@@ -14,14 +14,10 @@ def main(argv):
     subparsers = parser.add_subparsers()
 
     p = subparsers.add_parser('checkout',
+            help='Checkout all repos described by *.ini files, cloning and fetching as needed.',
             #aliases=['co'],
             )
     p.set_defaults(func=run.checkout)
-
-    p = subparsers.add_parser('convert',
-            help='Convert .gitmodules to this system.',
-            )
-    p.set_defaults(func=run.convert)
 
     p = subparsers.add_parser('prepare',
             help='Prepare to submit the current changes, staged as *.ini.bak files.',
@@ -29,7 +25,7 @@ def main(argv):
     p.set_defaults(func=run.prepare)
 
     p = subparsers.add_parser('submit',
-            help='Submit the prepared changes (*.ini.bak).',
+            help='"p4 submit" the prepared changes (*.ini.bak). If you have open changes which should be excluded, use "-c" or "-n".',
             )
     p.add_argument('-c', '--change',
             default='default',
