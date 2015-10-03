@@ -1,10 +1,9 @@
-#!/usr/bin/env python2.7
 """
 We use a separate file for each module b/c that makes them easier to
 update in p4.
 """
 from contextlib import contextmanager
-import argparse
+import collections
 import ConfigParser as configparser
 import glob
 import logging
@@ -53,7 +52,7 @@ def write_repo_config(fp, cfg, section='general'):
     cp = configparser.ConfigParser()
     if not cp.has_section(section):
         cp.add_section(section)
-    for key, val in cfg.iteritems():
+    for key, val in sorted(cfg.iteritems()):
         cp.set(section, key, val)
     cp.write(fp)
 def read_repo_config(fp, section='general'):
@@ -234,52 +233,4 @@ def convert(args):
             write_repo_config(fp, cfg)
     with cd(directory):
         system('p4 add *.ini')
-def main(argv):
-    parser = argparse.ArgumentParser(
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-d', '--directory',
-            default='.',
-            help='Directory of submodules')
-    parser.add_argument('-v', '--verbose',
-            action='store_true')
-    subparsers = parser.add_subparsers()
 
-    p = subparsers.add_parser('checkout',
-            #aliases=['co'],
-            )
-    p.set_defaults(func=checkout)
-
-    p = subparsers.add_parser('convert',
-            help='Convert .gitmodules to this system.',
-            )
-    p.set_defaults(func=convert)
-
-    p = subparsers.add_parser('prepare',
-            help='Prepare to submit the current changes, staged as *.ini.bak files.',
-            )
-    p.set_defaults(func=prepare)
-
-    p = subparsers.add_parser('submit',
-            help='Submit the prepared changes (*.ini.bak).',
-            )
-    p.add_argument('-c', '--change',
-            default='default',
-            help='Perforce changenum. Use this to avoid submitting your currently opened files.',
-            )
-    p.add_argument('-b', '--bug',
-            default='999999',
-            help='Bugzilla number.',
-            )
-    p.add_argument('-m', '--message',
-            default='Updating SHA1s.',
-            help='Brief message at top of submit description. Bug # and github links will be added.',
-            )
-    p.add_argument('-n', '--dry-run',
-            action='store_true',
-            help='Do not actually run any p4 commands.',
-            )
-    p.set_defaults(func=submit)
-    args = parser.parse_args(argv[1:])
-    args.func(args)
-
-main(sys.argv)
