@@ -4,4 +4,4 @@ class TestFoo(object):
     def test_pass(self):
         assert_equal(1, 1)
     def test_fail(self):
-        assert_equal(1, 2)
+        assert_not_equal(1, 2)
