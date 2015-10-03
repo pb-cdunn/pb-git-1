@@ -1,3 +1,5 @@
+# This file is not currently being detected at all by CirclCI,
+# so for now I am using codeship.com
 machine:
   python:
     version: 2.6.6
