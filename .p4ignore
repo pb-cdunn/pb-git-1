@@ -1,0 +1,6 @@
+*.pyc
+.git
+circle.yml
+try-circle.yml
+setup.py
+requirements*
