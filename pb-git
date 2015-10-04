@@ -1,5 +1,5 @@
 #!/usr/bin/env python2.7
-from pb_git import run
+from pb_git import cmds
 import argparse
 import sys
 
@@ -17,12 +17,12 @@ def main(argv):
             help='Checkout all repos described by *.ini files, cloning and fetching as needed.',
             #aliases=['co'],
             )
-    p.set_defaults(func=run.checkout)
+    p.set_defaults(func=cmds.checkout)
 
     p = subparsers.add_parser('prepare',
             help='Prepare to submit the current changes, staged as *.ini.bak files.',
             )
-    p.set_defaults(func=run.prepare)
+    p.set_defaults(func=cmds.prepare)
 
     p = subparsers.add_parser('submit',
             help='"p4 submit" the prepared changes (*.ini.bak). If you have open changes which should be excluded, use "-c" or "-n".',
@@ -39,11 +39,11 @@ def main(argv):
             default='Updating SHA1s.',
             help='Brief message at top of submit description. Bug # and github links will be added.',
             )
-    p.add_argument('-n', '--dry-run',
+    p.add_argument('-n', '--dry-cmds',
             action='store_true',
-            help='Do not actually run any p4 commands.',
+            help='Do not actually cmds any p4 commands.',
             )
-    p.set_defaults(func=run.submit)
+    p.set_defaults(func=cmds.submit)
     args = parser.parse_args(argv[1:])
     args.func(args)
 

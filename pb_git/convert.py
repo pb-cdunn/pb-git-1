@@ -1,4 +1,11 @@
-from . import run
+"""
+This is for one-off use of pb-git-convert-from-submodules. After it has
+served its purpose, we can delete this file.
+"""
+# Chris, Can this still be
+# useful for pulling new submodule sets into p4?
+# Implement 'pb-git add' first, then see.
+from . import cmds
 import ConfigParser as configparser
 import os
 import pprint
@@ -6,7 +13,7 @@ import re
 import StringIO
 
 
-log = run.log
+log = cmds.log
 
 def map_sha1s(listing):
     """
@@ -27,8 +34,8 @@ def map_sha1s(listing):
     return d
 
 def get_submodule_sha1s(d):
-    with run.cd(d):
-        listing = run.capture('git submodule')
+    with cmds.cd(d):
+        listing = cmds.capture('git submodule')
         return map_sha1s(listing)
 
 def gitmodules_as_config(content):
@@ -46,9 +53,9 @@ def convert(args):
     original directory to .bak and re-creating.
 
     This is used only to convert our old submodules to this system.
-    Note that 'pb-sync' should be run first.
+    Note that 'pb-sync' should be cmds first.
     """
-    run.init(args)
+    cmds.init(args)
     group = dict()
     repos = dict()
     group['repos'] = repos
@@ -72,12 +79,12 @@ def convert(args):
     for name, sha1 in sha1s.iteritems():
         repos[name]['sha1'] = sha1
     log.info(pprint.pformat(repos))
-    run.rename(directory, directory + '.bak')
-    run.mkdirs(directory)
+    cmds.rename(directory, directory + '.bak')
+    cmds.mkdirs(directory)
     for name, cfg in repos.iteritems():
         fn = os.path.join(directory, '{}.ini'.format(name))
         log.info('Writing {}'.format(fn))
         with open(fn, 'w') as fp:
-            run.write_repo_config(fp, cfg)
-    with run.cd(directory):
-        run.system('p4 add *.ini')
+            cmds.write_repo_config(fp, cfg)
+    with cmds.cd(directory):
+        cmds.system('p4 add *.ini')
