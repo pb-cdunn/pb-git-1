@@ -1,4 +1,4 @@
-from pb_git import (run, convert)
+from pb_git import (cmds, convert)
 import nose.tools as nt
 import StringIO
 import sys
@@ -6,11 +6,11 @@ import sys
 ver = sys.version[:3]
 
 def test_capture():
-    nt.assert_equal('hi', run.capture('echo hi').strip())
+    nt.assert_equal('hi', cmds.capture('echo hi').strip())
 
 def test_system():
-    nt.assert_equal(0, run.system('true'))
-    nt.assert_equal(256, run.system('false', checked=False))
+    nt.assert_equal(0, cmds.system('true'))
+    nt.assert_equal(256, cmds.system('false', checked=False))
 
 ini_content = """[general]
 x = foo
@@ -21,8 +21,8 @@ y = 1
 def test_repo_config():
     ifs = StringIO.StringIO(ini_content)
     ofs = StringIO.StringIO()
-    cfg = run.read_repo_config(ifs)
-    run.write_repo_config(ofs, cfg)
+    cfg = cmds.read_repo_config(ifs)
+    cmds.write_repo_config(ofs, cfg)
     if ver > '2.6':
         # 2.7 uses OrderedDict
         nt.assert_equal(ini_content, ofs.getvalue())
