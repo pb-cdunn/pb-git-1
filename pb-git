@@ -6,11 +6,7 @@ import sys
 def main(argv):
     parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-d', '--directory',
-            default='.',
-            help='Directory of submodules')
-    parser.add_argument('-v', '--verbose',
-            action='store_true')
+    cmds.init_argparse(parser)
     subparsers = parser.add_subparsers()
 
     p = subparsers.add_parser('checkout',
