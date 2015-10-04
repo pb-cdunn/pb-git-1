@@ -148,9 +148,9 @@ def submit(args):
     mout.write('bug #{}\n'.format(args.bug))
     mout.write('\n')
     if args.dry_run:
-        p4system = log.info
+        system_perm = log.info
     else:
-        p4system = system
+        system_perm = system
     with cd(args.directory):
         n = 0
         for fnnew in glob.glob('*.ini.bak'):
@@ -168,12 +168,12 @@ def submit(args):
             compare_link = 'https://github.com/{}/{}/compare/{}...{}'.format(
                 gh_user, gh_repo, sha1old, sha1new)
             mout.write('{}\n'.format(compare_link))
-            p4system('p4 edit {}'.format(fnold))
-            p4system('cp -f {} {}'.format(fnnew, fnold))
+            system_perm('p4 edit {}'.format(fnold))
+            system_perm('cp -f {} {}'.format(fnnew, fnold))
             n += 1
-        p4system('p4 revert -a ...')
+        system_perm('p4 revert -a ...')
         msg = mout.getvalue()
-        p4system('p4 submit -c {} -d "{}"'.format(
+        system_perm('p4 submit -c {} -d "{}"'.format(
             args.change, msg))
         if n == 0:
             return
