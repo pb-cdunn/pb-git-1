@@ -6,7 +6,7 @@ import sys
 ver = sys.version[:3]
 
 def test_capture():
-    nt.assert_equal('hi', cmds.capture('echo hi').strip())
+    nt.assert_equal('hi', cmds.capture('echo hi')[0].strip())
 
 def test_system():
     nt.assert_equal(0, cmds.system('true'))
