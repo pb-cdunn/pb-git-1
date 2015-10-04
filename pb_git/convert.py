@@ -79,8 +79,6 @@ def convert(args):
     for name, sha1 in sha1s.iteritems():
         repos[name]['sha1'] = sha1
     log.info(pprint.pformat(repos))
-    cmds.rename(directory, directory + '.bak')
-    cmds.mkdirs(directory)
     for name, cfg in repos.iteritems():
         fn = os.path.join(directory, '{}.ini'.format(name))
         log.info('Writing {}'.format(fn))
@@ -88,3 +86,19 @@ def convert(args):
             cmds.write_repo_config(fp, cfg)
     with cmds.cd(directory):
         cmds.system('p4 add *.ini')
+
+def migrate(args):
+    """Move old git-submodules parent repo,
+    'p4 sync -f dir',
+    and re-checkout.
+    """
+    cmds.init(args)
+    # We used to move and re-create, but that is not really needed immediately.
+    # The submodules can exist until a new one is added. Even then,
+    # things will work until someone actually performs a
+    # git-submodule command locally.
+    cmds.rename(directory, directory + '.bak')
+    log.warning('Your old work is now in "{}".'.format(directory + '.bak'))
+    cmds.system('p4 sync -f {}/...'.format(directory))
+    cmds.checkout(args)
+    log.warning('To reiterate, your old work is now in "{}".'.format(directory + '.bak'))
