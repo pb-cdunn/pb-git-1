@@ -39,7 +39,7 @@ def main(argv):
             default='Updating SHA1s.',
             help='Brief message at top of submit description. Bug # and github links will be added.',
             )
-    p.add_argument('-n', '--dry-cmds',
+    p.add_argument('-n', '--dry-run',
             action='store_true',
             help='Do not actually cmds any p4 commands.',
             )

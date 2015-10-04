@@ -35,7 +35,7 @@ def map_sha1s(listing):
 
 def get_submodule_sha1s(d):
     with cmds.cd(d):
-        listing = cmds.capture('git submodule')
+        listing = cmds.capture('git submodule status')
         return map_sha1s(listing)
 
 def gitmodules_as_config(content):

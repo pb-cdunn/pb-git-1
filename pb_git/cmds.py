@@ -19,6 +19,7 @@ cd_depth = 0
 
 @contextmanager
 def cd(newdir):
+    global cd_depth
     prevdir = os.getcwd()
     log.debug("[{}]cd '{}' from '{}'".format(cd_depth, newdir, prevdir))
     os.chdir(os.path.expanduser(newdir))
@@ -27,7 +28,7 @@ def cd(newdir):
         yield
     finally:
         cd_depth -= 1
-        log.debug("[{}]cd '{}' from '{}'".format(depth, newdir, prevdir))
+        log.debug("[{}]cd '{}' from '{}'".format(cd_depth, newdir, prevdir))
         os.chdir(prevdir)
 
 def system(call, checked=True):
