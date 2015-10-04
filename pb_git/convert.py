@@ -35,7 +35,8 @@ def map_sha1s(listing):
 
 def get_submodule_sha1s(d):
     with cmds.cd(d):
-        listing = cmds.capture('git submodule status')
+        listing, errs = cmds.capture('git submodule status')
+        if errs: log.debug(errs)
         return map_sha1s(listing)
 
 def gitmodules_as_config(content):
@@ -85,7 +86,10 @@ def convert(args):
         with open(fn, 'w') as fp:
             cmds.write_repo_config(fp, cfg)
     with cmds.cd(directory):
-        cmds.system('p4 add *.ini')
+        try:
+            cmds.system('p4 add *.ini')
+        except IOError:
+            log.exception('"convert" was already run on this directory. Try `pb-git -d $DIR prepare`, followed by `pb-git -d $DIR submit`.')
 
 def migrate(args):
     """Move old git-submodules parent repo,

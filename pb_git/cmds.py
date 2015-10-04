@@ -28,19 +28,35 @@ def cd(newdir):
         yield
     finally:
         cd_depth -= 1
-        log.debug("[{}]cd '{}' from '{}'".format(cd_depth, newdir, prevdir))
+        log.debug("[{}]cd '{}' back from '{}'".format(cd_depth, prevdir, newdir))
         os.chdir(prevdir)
 
 def system(call, checked=True):
+    """Raise IOError on failure if checked.
+    """
     log.info(call)
     rc = os.system(call)
     if rc and checked:
-        raise Exception('{rc} <- {call!r}'.format(rc=rc, call=call))
+        raise IOError('{rc} <- {call!r}'.format(rc=rc, call=call))
     return rc
 
 def capture(call):
+    """Return stdout, stderr.
+    Raise IOError on failure.
+    """
     log.info('`{}`'.format(call))
-    return subprocess.check_output(shlex.split(call))
+    # return subprocess.check_output(shlex.split(call))
+    # Ugh! p4 commands often write to stderr when there is no error,
+    # so we should trap that too. Why does anybody like p4?
+    proc = subprocess.Popen(shlex.split(call),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            )
+    out, err = proc.communicate()
+    if proc.returncode:
+        log.debug(out)
+        raise IOError(err)
+    return out, err
 
 def rename(old, new):
     log.info('Moving "{}" to "{}"'.format(old, new))
@@ -123,7 +139,9 @@ def prepare(args):
         for name, cfg in repos.iteritems():
             path = cfg['path']
             with cd(path):
-                sha1new = capture('git rev-parse HEAD').strip()
+                sha1new, errs = capture('git rev-parse HEAD')
+                if errs: log.debug(errs)
+                sha1new = sha1new.strip()
                 log.debug('{} {} {}'.format(sha1new, name, path))
                 if sha1new == cfg['sha1']:
                     continue
@@ -152,10 +170,25 @@ def submit(args):
     else:
         system_perm = system
     with cd(args.directory):
+        p4_opened, _ = capture('p4 opened -m 1')
+        if _: log.debug(_.strip())
+        p4_opened = p4_opened.strip()
+        #if 'not opened on this client' not in _:
+        if p4_opened:
+            if args.force:
+                log.warning('\n' + repr(p4_opened))
+                # We need these even in dry-run mode, to produce proper http links.
+                capture('p4 revert *.ini')
+                #capture('p4 sync -f *.ini') # Probably not needed.
+            else:
+                log.error('\n' + repr(p4_opened))
+                msg = 'You have open files in Perforce. Try again with `... submit --force` if you want a coordinated submission.'
+                raise Exception(msg)
         n = 0
         for fnnew in glob.glob('*.ini.bak'):
             fnold = fnnew[:-4]
             if not system('diff -qw {} {}'.format(fnnew, fnold), checked=False):
+                system_perm('rm -f {}'.format(fnnew))
                 continue
             with open(fnold) as fp:
                 cfgold = read_repo_config(fp)
@@ -171,9 +204,10 @@ def submit(args):
             system_perm('p4 edit {}'.format(fnold))
             system_perm('cp -f {} {}'.format(fnnew, fnold))
             n += 1
+        if n == 0 and not args.force:
+            raise Exception('Nothing to do. Check `p4 opened`. Maybe try again with `--force`.')
         system_perm('p4 revert -a ...')
         msg = mout.getvalue()
-        system_perm('p4 submit -c {} -d "{}"'.format(
-            args.change, msg))
-        if n == 0:
-            return
+        system_perm('p4 submit -d "{}"'.format(
+            msg))
+        system_perm(r'\rm -f *.ini.bak')
