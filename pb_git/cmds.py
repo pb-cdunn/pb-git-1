@@ -152,7 +152,7 @@ def checkout_repo(conf):
         out, err = capture(checkout_cmd)
     except Exception as e:
         log.debug('SHA1 not found. Fetching.', exc_info=True)
-        out, err = system('git -C {} fetch origin'.format(d))
+        capture('git -C {} fetch origin'.format(d))
         modified = True
         out, err = capture(checkout_cmd)
     if 'Previous' in err or modified:
