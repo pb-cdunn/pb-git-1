@@ -101,6 +101,7 @@ def migrate(args):
     # The submodules can exist until a new one is added. Even then,
     # things will work until someone actually performs a
     # git-submodule command locally.
+    directory = os.path.abspath(args.directory)
     cmds.rename(directory, directory + '.bak')
     log.warning('Your old work is now in "{}".'.format(directory + '.bak'))
     cmds.system('p4 sync -f {}/...'.format(directory))
