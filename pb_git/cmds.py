@@ -6,6 +6,7 @@ update in p4.
 """
 from contextlib import contextmanager
 import ConfigParser as configparser
+import functools
 import glob
 import logging
 import os
@@ -18,6 +19,8 @@ log = logging.getLogger(__name__)
 info_mod = logging.INFO+2
 info_sys = logging.INFO+1
 info_basic = logging.INFO+0
+log_info_sys = functools.partial(log.log, info_sys)
+log_info_mod = functools.partial(log.log, info_mod)
 cd_depth = 0
 
 @contextmanager
@@ -43,11 +46,11 @@ def system(call, checked=True):
         raise IOError('{rc} <- {call!r}'.format(rc=rc, call=call))
     return rc
 
-def capture(call):
+def capture(call, log=log_info_sys):
     """Return stdout, stderr.
     Raise IOError on failure.
     """
-    log.log(info_sys, '`{}`'.format(call))
+    log('`{}`'.format(call))
     # return subprocess.check_output(shlex.split(call))
     # Ugh! p4 commands often write to stderr when there is no error,
     # so we should trap that too. Why does anybody like p4?
@@ -56,8 +59,9 @@ def capture(call):
             stderr=subprocess.PIPE,
             )
     out, err = proc.communicate()
+    if out: log('{}'.format(out.rstrip()))
     if proc.returncode:
-        log.debug(out)
+        #log.debug(out)
         raise IOError(err)
     return out, err
 
@@ -86,7 +90,7 @@ def init(args):
             4: (logging.NOTSET, fmt_debug),
     }
     lvl, fmt = levels[args.verbosity]
-    logging.addLevelName(info_mod, 'MOD')
+    logging.addLevelName(info_mod, 'SYS')
     logging.addLevelName(info_sys, 'SYS')
     logging.addLevelName(info_basic, 'INFO')
     fmtr = logging.Formatter(fmt=fmt)
@@ -170,86 +174,106 @@ def checkout(args):
 
 def prepare(args):
     """
-    Create *.ini.bak.
-    TODO: Only create if different.
+    for each mod:
+        Create mod.ini.bak
+        diff mod.ini.bak mod.ini
+        if different:
+            p4 edit mod
+            mv mod.ini.bak mod.ini
     """
     init(args)
-    with cd(args.directory):
-        repos = read_modules()
-        for name, cfg in repos.iteritems():
-            path = cfg['path']
-            with cd(path):
-                sha1new, errs = capture('git rev-parse HEAD')
-                if errs: log.debug(errs)
-                sha1new = sha1new.strip()
-                log.debug('Preparing {} {} {}'.format(sha1new, name, path))
-                if sha1new == cfg['sha1']:
-                    continue
-                sha1old = cfg['sha1']
-                cfg['sha1'] = sha1new
-            assert os.path.exists(name + '.ini')
-            prepared = name + '.ini.bak'
-            with open(prepared, 'w') as fp:
-                log.log(info_mod, 'Writing to {!r}'.format(prepared))
-                write_repo_config(fp, cfg)
-
-def submit(args):
-    """
-    This has p4 interactions.
-      'p4 edit' on each file that needs to be changed.
-      'p4 revert -a'
-      'p4 submit'
-    TODO: Finally remove old *.ini.bak?
-    """
-    init(args)
-    mout = StringIO.StringIO()
-    mout.write('{}\n'.format(args.message))
-    mout.write('bug #{}\n'.format(args.bug))
-    mout.write('\n')
-    if args.dry_run:
-        system_perm = functools.partial(log.log, info_mod)
-    else:
-        system_perm = system
     with cd(args.directory):
         p4_opened, _ = capture('p4 opened -m 1')
         if _: log.debug(_.strip())
         p4_opened = p4_opened.strip()
         #if 'not opened on this client' not in _:
         if p4_opened:
-            if args.force:
-                log.warning('\n' + repr(p4_opened))
-                # We need these even in dry-run mode, to produce proper http links.
-                capture('p4 revert *.ini')
-                #capture('p4 sync -f *.ini') # Probably not needed.
-            else:
-                log.error('\n' + repr(p4_opened))
-                msg = 'You have open files in Perforce. Try again with `... submit --force` if you want a coordinated submission.'
-                raise Exception(msg)
-        n = 0
-        for fnnew in glob.glob('*.ini.bak'):
-            fnold = fnnew[:-4]
-            try:
-                capture('diff -qw {} {}'.format(fnnew, fnold), checked=False)
-            except IOError:
-                system_perm('rm -f {}'.format(fnnew))
+            log.warning('Already opened in p4:\n' + repr(p4_opened))
+            # We need these produce proper http links, in case this is run twice.
+            out, err = capture('p4 revert *.ini')
+            if out:
+                log.debug(repr(out.strip()))
+            if err:
+                log.debug(repr(err.strip()))
+            #capture('p4 sync -f *.ini') # Probably not needed.
+
+        repos = read_modules()
+        for name, cfg in repos.iteritems():
+            path = cfg['path']
+            sha1new, errs = capture('git -C {} rev-parse HEAD'.format(path))
+            if errs:
+                log.debug(errs)
+            sha1new = sha1new.strip()
+            log.debug('Preparing {} {} {}'.format(sha1new, name, path))
+            if sha1new == cfg['sha1']:
                 continue
-            with open(fnold) as fp:
-                cfgold = read_repo_config(fp)
-            with open(fnnew) as fp:
-                cfgnew = read_repo_config(fp)
-            sha1old = cfgold['sha1']
-            sha1new = cfgnew['sha1']
-            gh_user = 'PacificBiosciences' #TODO: Sometimes this is wrong.
-            gh_repo = fnold[:-4] # Probably?
-            compare_link = 'https://github.com/{}/{}/compare/{}...{}'.format(
-                gh_user, gh_repo, sha1old, sha1new)
-            mout.write('{}\n'.format(compare_link))
-            system_perm('p4 edit {}'.format(fnold))
-            system_perm('cp -f {} {}'.format(fnnew, fnold))
-            n += 1
-        if n == 0 and not args.force:
-            raise Exception('Nothing to do. Check `p4 opened`. Maybe try again with `--force`.')
-        system_perm('p4 revert -a ...')
+            sha1old = cfg['sha1']
+            cfg['sha1'] = sha1new
+            assert os.path.exists(name + '.ini')
+            prepared = name + '.ini.bak'
+            fnold = name + '.ini'
+            with open(prepared, 'w') as fp:
+                log_info_mod('Writing to {!r}'.format(prepared))
+                write_repo_config(fp, cfg)
+            capture('p4 edit {}'.format(fnold), log=log_info_mod)
+
+        mout = StringIO.StringIO()
+        n = prepare_for_submit(mout, dry_run=False)
+        capture('p4 diff ...')
+        msg = mout.getvalue()
+        sys.stdout.write('Please add these links to your submit message:\n' + msg)
+
+def prepare_for_submit(mout, dry_run=False):
+    """Assume this is running in parent dir of git-modules.
+    """
+    if dry_run:
+        system_perm = log_info_mod
+    else:
+        system_perm = functools.partial(capture, log=log_info_mod)
+    n = 0
+    for fnnew in glob.glob('*.ini.bak'):
+        fnold = fnnew[:-4]
+        try:
+            capture('diff -qw {} {}'.format(fnnew, fnold))
+            system_perm('rm -f {}'.format(fnnew))
+            continue
+        except IOError:
+            pass # They differ.
+        with open(fnold) as fp:
+            cfgold = read_repo_config(fp)
+        with open(fnnew) as fp:
+            cfgnew = read_repo_config(fp)
+        sha1old = cfgold['sha1']
+        sha1new = cfgnew['sha1']
+        gh_user = 'PacificBiosciences' #TODO: Sometimes this is wrong.
+        gh_repo = fnold[:-4] # Probably?
+        compare_link = 'https://github.com/{}/{}/compare/{}...{}'.format(
+            gh_user, gh_repo, sha1old, sha1new)
+        mout.write('{}\n'.format(compare_link))
+        system_perm('mv -f {} {}'.format(fnnew, fnold))
+        n += 1
+    system_perm('p4 revert -a ...')
+    return n
+
+def submit(args):
+    """
+    DEPRECATED. It is better to run 'p4 submit' yourself.
+
+    This has p4 interactions.
+      'p4 revert -a'
+      'p4 submit'
+    The user must run 'p4 edit' manually on the chosen '*.ini' files.
+    """
+    init(args)
+    with cd(args.directory):
+        mout = StringIO.StringIO()
+        mout.write('{}\n'.format(args.message))
+        mout.write('bug #{}\n'.format(args.bug))
+        mout.write('\n')
+        n = prepare_for_submit(mout, args.dry_run)
+        if n == 0:
+            #raise Exception('Nothing to do. Check `p4 opened`.')
+            return
         msg = mout.getvalue()
         system_perm('p4 submit -d "{}"'.format(
             msg))

@@ -16,12 +16,12 @@ def main(argv):
     p.set_defaults(func=cmds.checkout)
 
     p = subparsers.add_parser('prepare',
-            help='Prepare to submit the current changes, staged as *.ini.bak files.',
+            help='Prepare to submit the current changes, and `p4 edit` them. Work with intermediate *.ini.bak files.',
             )
     p.set_defaults(func=cmds.prepare)
 
     p = subparsers.add_parser('submit',
-            help='"p4 submit" the prepared changes (*.ini.bak). Recommendation: Run with `-n` first.',
+            help='DEPRECATED. `p4 submit` the prepared changes (*.ini.bak). Recommendation: Run with `-n` first.',
             )
     p.add_argument('-n', '--dry-run',
             action='store_true',
