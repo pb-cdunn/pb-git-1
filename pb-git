@@ -11,17 +11,20 @@ def main(argv):
 
     p = subparsers.add_parser('checkout',
             help='Checkout all repos described by *.ini files, cloning and fetching as needed.',
+            description='Checkout all repos described by *.ini files, cloning and fetching as needed. This will put the repos into "detached HEAD" state, just like git-submodules. Someday, we might add branch support.',
             #aliases=['co'],
             )
     p.set_defaults(func=cmds.checkout)
 
     p = subparsers.add_parser('prepare',
-            help='Prepare to submit the current changes, and `p4 edit` them. Work with intermediate *.ini.bak files.',
+            help='Prepare to submit the current changes.',
+            description='Prepare to submit the current changes, and `p4 edit` them. Work with intermediate *.ini.bak files. Users may run this command as often as they like. It is perfectly safe always. They must then run `p4 submit` themselves.',
             )
     p.set_defaults(func=cmds.prepare)
 
     p = subparsers.add_parser('submit',
-            help='DEPRECATED. `p4 submit` the prepared changes (*.ini.bak). Recommendation: Run with `-n` first.',
+            help='DEPRECATED. Users should run `p4 submit` themselves.',
+            description='DEPRECATED. `p4 submit` the prepared changes (*.ini.bak). Recommendation: Run with `-n` first.',
             )
     p.add_argument('-n', '--dry-run',
             action='store_true',
