@@ -54,9 +54,12 @@ def capture(call, log=log_info_sys):
     # return subprocess.check_output(shlex.split(call))
     # Ugh! p4 commands often write to stderr when there is no error,
     # so we should trap that too. Why does anybody like p4?
+    badvars = set(["P4DIFF", "P4MERGE"])
+    env = dict((k, v) for k, v in os.environ.iteritems() if k not in badvars)
     proc = subprocess.Popen(shlex.split(call),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=env
             )
     out, err = proc.communicate()
     if out: log('{}'.format(out.rstrip()))
