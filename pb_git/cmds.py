@@ -11,9 +11,11 @@ import glob
 import logging
 import os
 import shlex
+import shutil
 import StringIO
 import subprocess
 import sys
+import tempfile
 
 log = logging.getLogger(__name__)
 info_mod = logging.INFO+2
@@ -24,7 +26,7 @@ log_info_mod = functools.partial(log.log, info_mod)
 cd_depth = 0
 
 @contextmanager
-def cd(newdir):
+def cd(newdir, cleanup=lambda: True):
     global cd_depth
     prevdir = os.getcwd()
     log.info("[{}]cd '{}' from '{}'".format(cd_depth, newdir, prevdir))
@@ -36,6 +38,7 @@ def cd(newdir):
         cd_depth -= 1
         log.info("[{}]cd '{}' back from '{}'".format(cd_depth, prevdir, newdir))
         os.chdir(prevdir)
+        cleanup()
 
 def system(call, checked=True):
     """Raise IOError on failure if checked.
@@ -174,6 +177,50 @@ def checkout(args):
         repos = read_modules()
         for repo, cfg in repos.iteritems():
             checkout_repo(cfg)
+@contextmanager
+def tempdir():
+    dirpath = tempfile.mkdtemp()
+    def cleanup():
+        shutil.rmtree(dirpath)
+    with cd(dirpath, cleanup):
+        yield dirpath
+
+def verify_repo(name, cfg, sha1):
+    """
+    Here is one way:
+        curl -s -o /dev/null -w "%{http_code}" https://github.com/pb-cdunn/FALCON-integrate/commit/ab367c696
+    But we would need to translate the URL to https, which can be difficult for private modules
+    using API keys.
+    
+    Instead, we will simply perform a checkout.
+    We plan to have a cache, so we can let this be slow for now.
+    """
+    # We expect this to occur in a temp-dir.
+    mkdirs(name)
+    with cd(name):
+        path = cfg['path']
+        log.debug('Verifying {} {} {}'.format(name, sha1, path))
+        checkout_repo(cfg)
+
+def verify(args):
+    """
+    Check with GitHub to see whether These commits are available.
+    """
+    init(args)
+    with cd(args.directory):
+        repos = read_modules()
+        sha1s = dict()
+        for name, cfg in repos.iteritems():
+            path = cfg['path']
+            sha1new, errs = capture('git -C {} rev-parse HEAD'.format(path))
+            if errs:
+                log.debug(errs)
+            sha1new = sha1new.strip()
+            log.debug('Expecting {} @ {}'.format(path, sha1new))
+            sha1s[name] = sha1new
+        with tempdir():
+            for name, cfg in repos.iteritems():
+                verify_repo(name, cfg, sha1s[name])
 
 def prepare(args):
     """

@@ -22,6 +22,12 @@ def main(argv):
             )
     p.set_defaults(func=cmds.prepare)
 
+    p = subparsers.add_parser('verify',
+            help='Prove that the commit is actually available from a fresh checkout.',
+            description='This will become faster when we have caching. Note that `prepare` can call this itself.',
+            )
+    p.set_defaults(func=cmds.verify)
+
     p = subparsers.add_parser('submit',
             help='DEPRECATED. Users should run `p4 submit` themselves.',
             description='DEPRECATED. `p4 submit` the prepared changes (*.ini.bak). Recommendation: Run with `-n` first.',
