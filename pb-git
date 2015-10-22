@@ -20,6 +20,10 @@ def main(argv):
             help='Prepare to submit the current changes.',
             description='Prepare to submit the current changes, and `p4 edit` them. Work with intermediate *.ini.bak files. Users may run this command as often as they like. It is perfectly safe always. They must then run `p4 submit` themselves.',
             )
+    p.add_argument('--no-verify',
+            action='store_true',
+            help='Do not perform the verify step.',
+            )
     p.set_defaults(func=cmds.prepare)
 
     p = subparsers.add_parser('verify',

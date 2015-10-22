@@ -199,7 +199,7 @@ def verify_repo(name, cfg, sha1):
     mkdirs(name)
     with cd(name):
         path = cfg['path']
-        log.debug('Verifying {} {} {}'.format(name, sha1, path))
+        log_info_mod('Verifying {} {} {}'.format(name, sha1, path))
         checkout_repo(cfg)
 
 def verify(args):
@@ -248,6 +248,7 @@ def prepare(args):
             #capture('p4 sync -f *.ini') # Probably not needed.
 
         repos = read_modules()
+        changes = list()
         for name, cfg in repos.iteritems():
             path = cfg['path']
             sha1new, errs = capture('git -C {} rev-parse HEAD'.format(path))
@@ -266,7 +267,12 @@ def prepare(args):
                 log_info_mod('Writing to {!r}'.format(prepared))
                 write_repo_config(fp, cfg)
             capture('p4 edit {}'.format(fnold), log=log_info_mod)
-
+            changes.append((name, cfg, sha1new))
+        if not args.no_verify:
+            # Verify that changes are available in GitHub.
+            with tempdir():
+                for name, cfg, sha1 in changes:
+                    verify_repo(name, cfg, sha1)
         mout = StringIO.StringIO()
         n = prepare_for_submit(mout, dry_run=False)
         capture('p4 diff ...')
