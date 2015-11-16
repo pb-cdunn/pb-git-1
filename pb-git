@@ -32,27 +32,6 @@ def main(argv):
             )
     p.set_defaults(func=cmds.verify)
 
-    p = subparsers.add_parser('submit',
-            help='DEPRECATED. Users should run `p4 submit` themselves.',
-            description='DEPRECATED. `p4 submit` the prepared changes (*.ini.bak). Recommendation: Run with `-n` first.',
-            )
-    p.add_argument('-n', '--dry-run',
-            action='store_true',
-            help='Do not actually run any p4 commands.',
-            )
-    p.add_argument('-f', '--force',
-            action='store_true',
-            help='Submit all open files too. This helps you to coordinate changes, but it can also be a mistake.',
-            )
-    p.add_argument('-b', '--bug',
-            default='999999',
-            help='Bugzilla number.',
-            )
-    p.add_argument('-m', '--message',
-            default='Updating SHA1s.',
-            help='Brief message at top of submit description. Bug # and github links will be appended.',
-            )
-    p.set_defaults(func=cmds.submit)
     args = parser.parse_args(argv[1:])
     args.func(args)
 

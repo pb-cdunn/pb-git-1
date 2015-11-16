@@ -311,26 +311,3 @@ def prepare_for_submit(mout, dry_run=False):
     system_perm('p4 revert -a ...')
     return n
 
-def submit(args):
-    """
-    DEPRECATED. It is better to run 'p4 submit' yourself.
-
-    This has p4 interactions.
-      'p4 revert -a'
-      'p4 submit'
-    The user must run 'p4 edit' manually on the chosen '*.ini' files.
-    """
-    init(args)
-    with cd(args.directory):
-        mout = StringIO.StringIO()
-        mout.write('{}\n'.format(args.message))
-        mout.write('bug #{}\n'.format(args.bug))
-        mout.write('\n')
-        n = prepare_for_submit(mout, args.dry_run)
-        if n == 0:
-            #raise Exception('Nothing to do. Check `p4 opened`.')
-            return
-        msg = mout.getvalue()
-        system_perm('p4 submit -d "{}"'.format(
-            msg))
-        system_perm(r'\rm -f *.ini.bak')
