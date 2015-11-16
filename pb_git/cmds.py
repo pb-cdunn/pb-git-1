@@ -273,20 +273,16 @@ def prepare(args):
             with tempdir():
                 for name, cfg, sha1 in changes:
                     verify_repo(name, cfg, sha1)
-        mout = StringIO.StringIO()
-        n = prepare_for_submit(mout, dry_run=False)
+        msg = prepare_for_submit(mout)
         capture('p4 diff ...')
-        msg = mout.getvalue()
         sys.stdout.write('Please add these links to your submit message:\n' + msg)
 
-def prepare_for_submit(mout, dry_run=False):
+def prepare_for_submit():
     """Assume this is running in parent dir of git-modules.
+    Return http links to be added to the submit-message.
     """
-    if dry_run:
-        system_perm = log_info_mod
-    else:
-        system_perm = functools.partial(capture, log=log_info_mod)
-    n = 0
+    mout = StringIO.StringIO()
+    system_perm = functools.partial(capture, log=log_info_mod)
     for fnnew in glob.glob('*.ini.bak'):
         fnold = fnnew[:-4]
         try:
@@ -307,7 +303,7 @@ def prepare_for_submit(mout, dry_run=False):
             gh_user, gh_repo, sha1old, sha1new)
         mout.write('{}\n'.format(compare_link))
         system_perm('mv -f {} {}'.format(fnnew, fnold))
-        n += 1
     system_perm('p4 revert -a ...')
-    return n
+    msg = mout.getvalue()
+    return msg
 
