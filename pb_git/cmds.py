@@ -142,23 +142,22 @@ def read_modules():
         repos[name] = cfg
     return repos
 
-def checkout_repo(conf):
-    d = conf['path']
-    log.debug('checkout_repo at {!r}'.format(d))
+def checkout_repo_from_url(url, sha1, path):
+    """Probably from GitHub.
+    """
     modified = False
-    if not os.path.exists(d):
-        parent = os.path.dirname(os.path.abspath(d))
+    if not os.path.exists(path):
+        parent = os.path.dirname(os.path.abspath(path))
         mkdirs(parent)
         with cd(parent):
-            system('git clone {} {}'.format(conf['url'], conf['path']))
+            system('git clone {} {}'.format(url, path))
             modified = True
-    sha1 = conf['sha1']
-    checkout_cmd = 'git -C {} checkout {}'.format(d, sha1)
+    checkout_cmd = 'git -C {} checkout {}'.format(path, sha1)
     try:
         out, err = capture(checkout_cmd)
     except Exception as e:
         log.debug('SHA1 not found. Fetching.', exc_info=True)
-        capture('git -C {} fetch origin'.format(d))
+        capture('git -C {} fetch origin'.format(path))
         modified = True
         out, err = capture(checkout_cmd)
     if 'Previous' in err or modified:
@@ -169,6 +168,13 @@ def checkout_repo(conf):
     if out:
         # This seems to be always empty, but I am not positive.
         log.debug(out.strip())
+
+def checkout_repo(conf):
+    path = conf['path']
+    sha1 = conf['sha1']
+    url = conf['url']
+    log.debug('checkout_repo at {!r}'.format(path))
+    checkout_repo_from_url(url, sha1, path)
 
 def checkout(args):
     init(args)
