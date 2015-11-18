@@ -3,6 +3,8 @@ from pb_git import cmds
 import argparse
 import sys
 
+MIRRORS_BASE = '/lustre/hpcprod/cdunn/git-mirrors-client/smrtanalysis/bioinformatics'
+
 def main(argv):
     parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -13,6 +15,11 @@ def main(argv):
             help='Checkout all repos described by *.ini files, cloning and fetching as needed.',
             description='Checkout all repos described by *.ini files, cloning and fetching as needed. This will put the repos into "detached HEAD" state, just like git-submodules. Someday, we might add branch support.',
             #aliases=['co'],
+            )
+    p.add_argument('--mirrors',
+            default='', # This will not have a default yet, until I have tested it a bit.
+            #default=MIRRORS_BASE,
+            help='Clone/fetch from the mirror first. Use this path, plus ext/pi etc.',
             )
     p.set_defaults(func=cmds.checkout)
 

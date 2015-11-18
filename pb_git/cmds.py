@@ -142,7 +142,15 @@ def read_modules():
         repos[name] = cfg
     return repos
 
-def checkout_repo_from_url(url, sha1, path):
+def set_remote(url, remote, path):
+    try:
+        capture('git -C {} remote add {} {}'.format(path, remote, url))
+    except Exception:
+        pass
+    # In case the url is wrong, update it.
+    capture('git -C {} remote set-url {} {}'.format(path, remote, url))
+
+def checkout_repo_from_url(url, sha1, remote, path):
     """Probably from GitHub.
     """
     modified = False
@@ -150,14 +158,15 @@ def checkout_repo_from_url(url, sha1, path):
         parent = os.path.dirname(os.path.abspath(path))
         mkdirs(parent)
         with cd(parent):
-            system('git clone {} {}'.format(url, path))
+            system('git clone --origin {} {} {}'.format(remote, url, path))
             modified = True
     checkout_cmd = 'git -C {} checkout {}'.format(path, sha1)
     try:
         out, err = capture(checkout_cmd)
     except Exception as e:
         log.debug('SHA1 not found. Fetching.', exc_info=True)
-        capture('git -C {} fetch origin'.format(path))
+        set_remote(url, remote, path)
+        capture('git -C {} fetch {}'.format(path, remote))
         modified = True
         out, err = capture(checkout_cmd)
     if 'Previous' in err or modified:
@@ -169,12 +178,44 @@ def checkout_repo_from_url(url, sha1, path):
         # This seems to be always empty, but I am not positive.
         log.debug(out.strip())
 
-def checkout_repo(conf):
+def getgithubname(remote):
+    """
+    Not used, but maybe someday.
+    >>> getgithubname('git@github.com:PacBio/Foo.git')
+    'PacBio/Foo'
+    >>> getgithubname('git://github.com/PacBio/Bar')
+    'PacBio/Bar'
+    """
+    import re, warnings
+    re_remote = re.compile(r'github\.com.(.*)$')
+    githubname = re_remote.search(remote).group(1)
+    if githubname.endswith('.git'):
+        githubname = githubname[:-4]
+    if '/' not in githubname:
+        warnings.warn('%r does not look like a github name. It should be "account/repo". It came from %r'%(
+            githubname, remote))
+    return githubname
+
+def get_mirror_dir(cwd, mirrors_base):
+    ext, pi = os.path.abspath(cwd).split(os.path.sep)[-2:] # Could be 'ext-vc', 'pivc'.
+    return os.path.join(mirrors_base, ext, pi)
+
+def checkout_repo(conf, mirrors_base):
     path = conf['path']
     sha1 = conf['sha1']
     url = conf['url']
     log.debug('checkout_repo at {!r}'.format(path))
-    checkout_repo_from_url(url, sha1, path)
+    if not mirrors_base:
+        checkout_repo_from_url(url, sha1, 'origin', path)
+        return
+    try:
+        # Not really a URL. Just a path. So 'git clone' would imply '--local', which is good.
+        mirror_url = os.path.join(get_mirror_dir(os.getcwd(), mirrors_base), path)
+        checkout_repo_from_url(mirror_url, sha1, 'mirror', path)
+        set_remote(url, 'origin', path) # for convenient command-line work by users
+    except Exception:
+        log.exception('Failed to checkout from mirror. Maybe mirror is out-of-date? But GitHub checkout should still work.')
+        checkout_repo_from_url(url, sha1, 'origin', path)
 
 def checkout(args):
     init(args)
@@ -182,7 +223,8 @@ def checkout(args):
         # Directories are relative to the location of ini files, for now.
         repos = read_modules()
         for repo, cfg in repos.iteritems():
-            checkout_repo(cfg)
+            checkout_repo(cfg, args.mirrors)
+
 @contextmanager
 def tempdir():
     dirpath = tempfile.mkdtemp()
