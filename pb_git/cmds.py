@@ -248,7 +248,7 @@ def verify_repo(name, cfg, sha1):
     with cd(name):
         path = cfg['path']
         log_info_mod('Verifying {} {} {}'.format(name, sha1, path))
-        checkout_repo(cfg)
+        checkout_repo(cfg, None)
 
 def verify(args):
     """
@@ -321,7 +321,7 @@ def prepare(args):
             with tempdir():
                 for name, cfg, sha1 in changes:
                     verify_repo(name, cfg, sha1)
-        msg = prepare_for_submit(mout)
+        msg = prepare_for_submit()
         capture('p4 diff ...')
         sys.stdout.write('Please add these links to your submit message:\n' + msg)
 
