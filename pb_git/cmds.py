@@ -16,6 +16,7 @@ import StringIO
 import subprocess
 import sys
 import tempfile
+import traceback
 
 log = logging.getLogger(__name__)
 info_mod = logging.INFO+2
@@ -214,7 +215,10 @@ def checkout_repo(conf, mirrors_base):
         checkout_repo_from_url(mirror_url, sha1, 'mirror', path)
         set_remote(url, 'origin', path) # for convenient command-line work by users
     except Exception:
-        log.exception('Failed to checkout from mirror. Maybe mirror is out-of-date? But GitHub checkout should still work.')
+        log.debug('Failed to checkout from mirror in {}. Maybe mirror is out-of-date? But GitHub checkout should still work.'.format(
+            mirrors_base))
+        # That should become a warning eventually.
+        log.debug(traceback.format_exc())
         checkout_repo_from_url(url, sha1, 'origin', path)
 
 def checkout(args):

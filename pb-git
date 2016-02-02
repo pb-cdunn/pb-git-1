@@ -1,9 +1,30 @@
 #!/usr/bin/env python2.7
 from pb_git import cmds
 import argparse
+import os
 import sys
+import warnings
 
-MIRRORS_BASE = '/lustre/hpcprod/cdunn/git-mirrors-client/smrtanalysis/bioinformatics'
+def get_default_mirrors_base():
+    base = os.environ.get('PB_GIT_DEFAULT_MIRRORS_BASE', '/lustre/hpcprod/cdunn/git-mirrors-client/smrtanalysis/bioinformatics')
+    # '' => do not use a mirror.
+    if base and os.path.abspath(base) in os.path.abspath(os.getcwd()):
+        warnings.warn('Cannot use base above cwd. Ignoring. ({!r} is in {!r})'.format(
+            base, os.getcwd()))
+        base = ''
+    if base and not os.path.exists(base):
+        warnings.warn('base does not exist. Ignoring. ({!r})'.format(
+            base))
+        base = ''
+    return base
+
+try:
+    PB_GIT_DEFAULT_MIRRORS_BASE = get_default_mirrors_base()
+except:
+    # To be as robust as possible.
+    PB_GIT_DEFAULT_MIRRORS_BASE = ''
+#warnings.warn('base={!r}'.format(PB_GIT_DEFAULT_MIRRORS_BASE))
+
 
 def main(argv):
     parser = argparse.ArgumentParser(
@@ -17,9 +38,8 @@ def main(argv):
             #aliases=['co'],
             )
     p.add_argument('--mirrors',
-            default='', # This will not have a default yet, until I have tested it a bit.
-            #default=MIRRORS_BASE,
-            help='Clone/fetch from the mirror first. Use this path, plus ext/pi etc.',
+            default=PB_GIT_DEFAULT_MIRRORS_BASE,
+            help='Clone/fetch from the mirror first. Use this path, plus ext/pi etc. [default="%(default)s", which can be over-ridden via PB_GIT_DEFAULT_MIRRORS_BASE]',
             )
     p.set_defaults(func=cmds.checkout)
 
