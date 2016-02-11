@@ -210,8 +210,11 @@ def checkout_repo(conf, mirrors_base):
         checkout_repo_from_url(url, sha1, 'origin', path)
         return
     try:
-        # Not really a URL. Just a path. So 'git clone' would imply '--local', which is good.
-        mirror_url = os.path.join(get_mirror_dir(os.getcwd(), mirrors_base), path)
+        if ':' in mirrors_base:
+            mirror_url = os.path.join(mirrors_base, path)
+        else:
+            # Not really a URL. Just a path. So 'git clone' would imply '--local', which is good.
+            mirror_url = os.path.join(get_mirror_dir(os.getcwd(), mirrors_base), path)
         checkout_repo_from_url(mirror_url, sha1, 'mirror', path)
         set_remote(url, 'origin', path) # for convenient command-line work by users
     except Exception:

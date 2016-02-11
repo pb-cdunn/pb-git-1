@@ -5,15 +5,20 @@ import os
 import sys
 import warnings
 
+PB_GIT_DEFAULT_MIRRORS_BASE_DEFAULT = '/lustre/hpcprod/cdunn/git-mirrors-client/smrtanalysis/bioinformatics'
+PB_GIT_DEFAULT_MIRRORS_BASE_DEFAULT = 'git://gitmirror.nanofluidics.com'
+
 def get_default_mirrors_base():
-    base = os.environ.get('PB_GIT_DEFAULT_MIRRORS_BASE', '/lustre/hpcprod/cdunn/git-mirrors-client/smrtanalysis/bioinformatics')
+    base = os.environ.get('PB_GIT_DEFAULT_MIRRORS_BASE', PB_GIT_DEFAULT_MIRRORS_BASE_DEFAULT)
     # '' => do not use a mirror.
-    if base and os.path.abspath(base) in os.path.abspath(os.getcwd()):
+    # In case we use a directory:
+    if base and (':' not in base) and (os.path.abspath(base) in os.path.abspath(os.getcwd())):
         warnings.warn('Cannot use base above cwd. Ignoring. ({!r} is in {!r})'.format(
             base, os.getcwd()))
         base = ''
-    if base and not os.path.exists(base):
-        warnings.warn('base does not exist. Ignoring. ({!r})'.format(
+    # Check if a repo is reachable:
+    if base and os.system('git ls-remote {}/pith'.format(base)):
+        warnings.warn('Git mirrors base is unreachable. Ignoring. ({!r})'.format(
             base))
         base = ''
     return base
@@ -39,7 +44,7 @@ def main(argv):
             )
     p.add_argument('--mirrors',
             default=PB_GIT_DEFAULT_MIRRORS_BASE,
-            help='Clone/fetch from the mirror first. Use this path, plus ext/pi etc. [default="%(default)s", which can be over-ridden via PB_GIT_DEFAULT_MIRRORS_BASE]',
+            help='Clone/fetch from the mirror first. Use this path, plus ext/pi etc. if a directory. [default="%(default)s", which can be over-ridden via PB_GIT_DEFAULT_MIRRORS_BASE]',
             )
     p.set_defaults(func=cmds.checkout)
 
