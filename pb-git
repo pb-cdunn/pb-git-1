@@ -17,7 +17,7 @@ def get_default_mirrors_base():
             base, os.getcwd()))
         base = ''
     # Check if a repo is reachable:
-    if base and os.system('git ls-remote {}/pith'.format(base)):
+    if base and os.system('git ls-remote {}/pith > /dev/null 2>&1'.format(base)):
         warnings.warn('Git mirrors base is unreachable. Ignoring. ({!r})'.format(
             base))
         base = ''
