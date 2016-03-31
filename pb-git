@@ -14,13 +14,11 @@ def get_default_mirrors_base():
     # '' => do not use a mirror.
     # In case we use a directory:
     if base and (':' not in base) and (os.path.abspath(base) in os.path.abspath(os.getcwd())):
-        warnings.warn('Cannot use base above cwd. Ignoring. ({!r} is in {!r})'.format(
-            base, os.getcwd()))
+        warnings.warn('Cannot use base above cwd. Ignoring. ({!r} is in {!r})'.format(base, os.getcwd()))
         base = ''
     # Check if a repo is reachable:
-    if base and os.system('git ls-remote {}/pith > /dev/null 2>&1'.format(base)):
-        warnings.warn('Git mirrors base is unreachable. Ignoring. ({!r})'.format(
-            base))
+    if base and pb_git.os.system('git ls-remote {}/pith > /dev/null 2>&1'.format(base), timeout=2):
+        warnings.warn('Git mirrors base is unreachable. Ignoring. ({!r})'.format(base))
         base = ''
     return base
 
