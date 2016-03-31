@@ -1,5 +1,6 @@
 #!/usr/bin/env python2.7
-from pb_git import cmds
+import pb_git.cmds
+import pb_git.os
 import argparse
 import os
 import sys
@@ -34,7 +35,7 @@ except:
 def main(argv):
     parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    cmds.init_argparse(parser)
+    pb_git.cmds.init_argparse(parser)
     subparsers = parser.add_subparsers()
 
     p = subparsers.add_parser('checkout',
@@ -46,7 +47,7 @@ def main(argv):
             default=PB_GIT_DEFAULT_MIRRORS_BASE,
             help='Clone/fetch from the mirror first. Use this path, plus ext/pi etc. if a directory. [default="%(default)s", which can be over-ridden via PB_GIT_DEFAULT_MIRRORS_BASE]',
             )
-    p.set_defaults(func=cmds.checkout)
+    p.set_defaults(func=pb_git.cmds.checkout)
 
     p = subparsers.add_parser('prepare',
             help='Prepare to submit the current changes.',
@@ -56,13 +57,13 @@ def main(argv):
             action='store_true',
             help='Do not perform the verify step.',
             )
-    p.set_defaults(func=cmds.prepare)
+    p.set_defaults(func=pb_git.cmds.prepare)
 
     p = subparsers.add_parser('verify',
             help='Prove that the commit is actually available from a fresh checkout.',
             description='This will become faster when we have caching. Note that `prepare` can call this itself.',
             )
-    p.set_defaults(func=cmds.verify)
+    p.set_defaults(func=pb_git.cmds.verify)
 
     args = parser.parse_args(argv[1:])
     args.func(args)
