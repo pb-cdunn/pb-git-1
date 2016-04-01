@@ -4,6 +4,7 @@ We expect to see a foo.ini file for every repo 'foo'.
 We use a separate file for each module b/c that makes them easier to
 update in p4.
 """
+from __future__ import absolute_import
 from contextlib import contextmanager
 import ConfigParser as configparser
 import functools
