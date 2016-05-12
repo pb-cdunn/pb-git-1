@@ -147,7 +147,7 @@ def read_modules(args):
     Return dict(name: config).
     """
     repos = dict()
-    if 'inis' not in args:
+    if not args.inis:
         fns = glob.glob('*.ini')
     else:
         log.log(info_basic, '--inis={}'.format(args.inis))
