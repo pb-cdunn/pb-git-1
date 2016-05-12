@@ -82,7 +82,10 @@ def init_argparse(parser):
     """
     parser.add_argument('-d', '--directory',
             default='.',
-            help='Directory of submodules')
+            help='Change to this directory before running commands.')
+    parser.add_argument('--inis',
+            help='File of ini filenames, either absolute or relative to CWD (--directory). '
+                 'If provided, then use *only* these. Otherwise, use all *.ini')
     parser.add_argument('-v', '--verbosity',
             default=1, type=int,
             help='0=>only errors/warnings; 1=>modifications; 2=>syscalls; 3=>info; 4=>debug')
@@ -131,16 +134,28 @@ def read_repo_config(fp, section='general'):
     cp.readfp(fp)
     return dict(cp.items(section))
 
-def read_modules():
-    """Read all .ini from cwd.
+def read_module(fn):
+    """Read a given config, e.g. 'foo.ini'.
+    Return cfg-dict.
+    """
+    cfg = read_repo_config(open(fn))
+    log.debug("{!r} -> {!r}".format(fn, cfg))
+    return cfg
+
+def read_modules(args):
+    """Read all .ini, based on command-line args.
     Return dict(name: config).
     """
     repos = dict()
-    for fn in glob.glob('*.ini'):
-        log.log(info_basic, 'Found "{}"'.format(fn))
-        cfg = read_repo_config(open(fn))
-        log.debug("{!r} -> {!r}".format(fn, cfg))
-        name = fn[:-4]
+    if 'inis' not in args:
+        fns = glob.glob('*.ini')
+    else:
+        log.log(info_basic, '--inis={}'.format(args.inis))
+        fns = open(args.inis).read().strip().split()
+    for fn in fns:
+        log.log(info_basic, 'Processing "{}"'.format(fn))
+        cfg = read_module(fn)
+        name = os.path.basename(os.path.splitext(fn)[0])
         repos[name] = cfg
     return repos
 
@@ -229,7 +244,7 @@ def checkout(args):
     init(args)
     with cd(args.directory):
         # Directories are relative to the location of ini files, for now.
-        repos = read_modules()
+        repos = read_modules(args)
         for repo, cfg in repos.iteritems():
             checkout_repo(cfg, args.mirrors)
 
@@ -264,7 +279,7 @@ def verify(args):
     """
     init(args)
     with cd(args.directory):
-        repos = read_modules()
+        repos = read_modules(args)
         sha1s = dict()
         for name, cfg in repos.iteritems():
             path = cfg['path']
@@ -303,7 +318,7 @@ def prepare(args):
                 log.debug(repr(err.strip()))
             #capture('p4 sync -f *.ini') # Probably not needed.
 
-        repos = read_modules()
+        repos = read_modules(args)
         changes = list()
         for name, cfg in repos.iteritems():
             path = cfg['path']
