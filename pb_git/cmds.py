@@ -265,25 +265,40 @@ def tempdir():
         yield dirpath
 
 def verify_repo(name, cfg, sha1):
-    """
-    Here is one way:
-        curl -s -o /dev/null -w "%{http_code}" https://github.com/pb-cdunn/FALCON-integrate/commit/ab367c696
-    But we would need to translate the URL to https, which can be difficult for private modules
-    using API keys.
-    
-    Instead, we will simply perform a checkout.
-    We plan to have a cache, so we can let this be slow for now.
-    """
     # We expect this to occur in a temp-dir.
     mkdirs(name)
     with cd(name):
         path = cfg['path']
-        log_info_mod('Verifying {} {} {}'.format(name, sha1, path))
+        log_info_mod('Verifying {} {} {} with a full checkout in a tempdir.'.format(name, sha1, path))
         checkout_repo(cfg, None)
 
+def verify_repo_fast(name, cfg, sha1):
+    path = cfg['path']
+    log_info_mod('Verifying {} {} {}'.format(name, sha1, path))
+    cmd = 'git -C {} branch -r --contains {}'.format(path, sha1)
+    out, err = capture(cmd)
+    assert 'origin' in out, 'Reachable remote branches:\n{}\nOur SHA1 is not reachable from any tracking branch of the "origin" remote.'.format(out)
+
 def verify(args):
-    """
-    Check with GitHub to see whether These commits are available.
+    """Check with GitHub to see whether These commits are available.
+
+    Here is one way:
+        curl -s -o /dev/null -w "%{http_code}" https://github.com/pb-cdunn/FALCON-integrate/commit/ab367c696
+    But we would need to translate the URL to https, which can be difficult for private modules
+    using API keys. Also, that is slow even for small repos.
+
+    We can always simply perform a checkout, perhaps from the mirror first.
+    But this is slow for large repos.
+
+    But something which happens to work is:
+      git fetch origin SHA1
+    That is quick when the remote-tracking branch is already up-to-date.
+    ... Unfortunately, that does not work. When a SHA1 exists locally but
+    not remotely, git-fetch passes anyway.
+
+    Instead, we will check whether the SHA1 is reachable from origin/master,
+    and if not, then we will fall-back on the full checkout in /tmp.
+    # http://stackoverflow.com/questions/3005392/how-can-i-tell-if-one-commit-is-a-descendant-of-another-commit
     """
     init(args)
     with cd(args.directory):
@@ -297,9 +312,14 @@ def verify(args):
             sha1new = sha1new.strip()
             log.debug('Expecting {} @ {}'.format(path, sha1new))
             sha1s[name] = sha1new
-        with tempdir():
+        try:
             for name, cfg in repos.iteritems():
-                verify_repo(name, cfg, sha1s[name])
+                verify_repo_fast(name, cfg, sha1s[name])
+        except Exception:
+            log.exception('Failed the fast way. Trying the slow way...')
+            with tempdir():
+                for name, cfg in repos.iteritems():
+                    verify_repo(name, cfg, sha1s[name])
 
 def prepare(args):
     """
