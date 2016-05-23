@@ -17,7 +17,7 @@ def get_default_mirrors_base():
         warnings.warn('Cannot use base above cwd. Ignoring. ({!r} is in {!r})'.format(base, os.getcwd()))
         base = ''
     # Check if a repo is reachable:
-    if base and pb_git.os.system('git ls-remote {}/pith > /dev/null 2>&1'.format(base), timeout=2):
+    if base and pb_git.os.system('git ls-remote --heads {}/pith > /dev/null 2>&1'.format(base), timeout=2):
         warnings.warn('Git mirrors base is unreachable. Ignoring. ({!r})'.format(base))
         base = ''
     return base

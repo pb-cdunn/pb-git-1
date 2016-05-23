@@ -161,11 +161,11 @@ def read_modules(args):
 
 def set_remote(url, remote, path):
     try:
-        capture('git -C {} remote add {} {}'.format(path, remote, url))
+        capture('git -C {} remote add {} {}'.format(path, remote, url), log=log.debug)
     except Exception:
         pass
     # In case the url is wrong, update it.
-    capture('git -C {} remote set-url {} {}'.format(path, remote, url))
+    capture('git -C {} remote set-url {} {}'.format(path, remote, url), log=log.debug)
 
 def checkout_repo_from_url(url, sha1, remote, path):
     """Probably from GitHub.
@@ -181,7 +181,7 @@ def checkout_repo_from_url(url, sha1, remote, path):
     try:
         out, err = capture(checkout_cmd)
     except Exception as e:
-        log.debug('SHA1 not found. Fetching.', exc_info=True)
+        log.debug('SHA1 needed. Fetching.', exc_info=True)
         set_remote(url, remote, path)
         capture('git -C {} fetch {}'.format(path, remote))
         modified = True
@@ -234,10 +234,18 @@ def checkout_repo(conf, mirrors_base):
         checkout_repo_from_url(mirror_url, sha1, 'mirror', path)
         set_remote(url, 'origin', path) # for convenient command-line work by users
     except Exception:
-        log.debug('Failed to checkout from mirror in {}. Maybe mirror is out-of-date? But GitHub checkout should still work.'.format(
-            mirrors_base))
-        # That should become a warning eventually.
-        log.debug(traceback.format_exc())
+        log.debug('Failed to checkout from mirror. Probably fine.\n{}'.format(traceback.format_exc()))
+        try:
+            cmd_ls_remote = 'git ls-remote --heads {}/pith > /dev/null'.format(base)
+            capture(cmd_ls_remote, timeout=2, log=log.debug)
+            # This message applies to the call 5 lines up. Now we know the failure mode.
+            log.debug('Failed to checkout from mirror in {}. Maybe mirror is out-of-date? But GitHub checkout should still work.'.format(
+                mirrors_base))
+        except Exception:
+            log.debug('Failure to contact mirror:\n{}.'.format(traceback.format_exc()))
+            log.warning('Failed to checkout from mirror in {}. Mirror repo is unavailable. But GitHub checkout should still work.'.format(
+                mirrors_base))
+        # The mirror is updated only every 6 hours, so this can be common.
         checkout_repo_from_url(url, sha1, 'origin', path)
 
 def checkout(args):
