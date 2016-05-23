@@ -277,7 +277,7 @@ def verify_repo_fast(name, cfg, sha1):
     log_info_mod('Verifying {} {} {}'.format(name, sha1, path))
     cmd = 'git -C {} branch -r --contains {}'.format(path, sha1)
     out, err = capture(cmd)
-    assert 'origin' in out, 'Reachable remote branches:\n{}\nOur SHA1 is not reachable from any tracking branch of the "origin" remote.'.format(out)
+    assert ('origin' in out or 'mirror' in out), 'Reachable remote branches:\n{}\nOur SHA1 is not reachable from any tracking branch of the "origin" or "mirror" remotes.'.format(out)
 
 def verify(args):
     """Check with GitHub to see whether These commits are available.
