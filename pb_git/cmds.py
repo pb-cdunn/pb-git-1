@@ -264,20 +264,29 @@ def tempdir():
     with cd(dirpath, cleanup):
         yield dirpath
 
-def verify_repo(name, cfg, sha1):
+def verify_repo_slow(name, cfg, sha1):
     # We expect this to occur in a temp-dir.
     mkdirs(name)
     with cd(name):
         path = cfg['path']
-        log_info_mod('Verifying {} {} {} with a full checkout in a tempdir.'.format(name, sha1, path))
+        log_info_mod('Verifying GitHub repo {} contains {} with a full checkout in a tempdir.'.format(name, sha1))
         checkout_repo(cfg, None)
 
 def verify_repo_fast(name, cfg, sha1):
     path = cfg['path']
-    log_info_mod('Verifying {} {} {}'.format(name, sha1, path))
+    log_info_mod('Verifying {} contains {} in a remote-tracking branch at ./{}'.format(name, sha1, path))
     cmd = 'git -C {} branch -r --contains {}'.format(path, sha1)
     out, err = capture(cmd)
     assert ('origin' in out or 'mirror' in out), 'Reachable remote branches:\n{}\nOur SHA1 is not reachable from any tracking branch of the "origin" or "mirror" remotes.'.format(out)
+
+def verify_repo(name, cfg, sha1):
+    try:
+        verify_repo_fast(name, cfg, sha1)
+    except Exception:
+        # Someday: Maybe 'git fetch' in case the remote is not up-to-date?
+        log.exception('Failed to verify "{}" the fast way. Trying the slow way...'.format(name))
+        with tempdir():
+            verify_repo_slow(name, cfg, sha1)
 
 def verify(args):
     """Check with GitHub to see whether These commits are available.
@@ -312,14 +321,7 @@ def verify(args):
             sha1new = sha1new.strip()
             log.debug('Expecting {} @ {}'.format(path, sha1new))
             sha1s[name] = sha1new
-        try:
-            for name, cfg in repos.iteritems():
-                verify_repo_fast(name, cfg, sha1s[name])
-        except Exception:
-            log.exception('Failed the fast way. Trying the slow way...')
-            with tempdir():
-                for name, cfg in repos.iteritems():
-                    verify_repo(name, cfg, sha1s[name])
+        verify_repo(name, cfg, sha1s[name])
 
 def prepare(args):
     """
@@ -369,9 +371,8 @@ def prepare(args):
             changes.append((name, cfg, sha1new))
         if not args.no_verify:
             # Verify that changes are available in GitHub.
-            with tempdir():
-                for name, cfg, sha1 in changes:
-                    verify_repo(name, cfg, sha1)
+            for name, cfg, sha1 in changes:
+                verify_repo(name, cfg, sha1)
         msg = prepare_for_submit()
         capture('p4 diff ...')
         sys.stdout.write('Please add these links to your submit message:\n' + msg)

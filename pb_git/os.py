@@ -12,5 +12,7 @@ def system(call, timeout=None):
         _timeout_exists = not rc
     if timeout and _timeout_exists:
         call = 'timeout {} {}'.format(timeout, call)
-    print call
-    return os.system(call)
+    rc = os.system(call)
+    if rc:
+        print '{} <- "{}"'.format(rc, call)
+    return rc
