@@ -111,6 +111,10 @@ def init(args):
     root.addHandler(hdlr)
     root.setLevel(lvl)
 
+    global VERBOSITY
+    VERBOSITY = args.verbosity
+
+
 def mkdirs(d):
     if not os.path.isdir(d):
         log.log(info_sys, 'mkdir -p {}'.format(d))
@@ -167,7 +171,7 @@ def set_remote(url, remote, path):
     # In case the url is wrong, update it.
     capture('git -C {} remote set-url {} {}'.format(path, remote, url), log=log.debug)
 
-def checkout_repo_from_url(url, sha1, remote, path):
+def checkout_repo_from_url(url, sha1, remote, path, mylog=log_info_sys):
     """Probably from GitHub.
     """
     modified = False
@@ -175,22 +179,23 @@ def checkout_repo_from_url(url, sha1, remote, path):
         parent = os.path.dirname(os.path.abspath(path))
         mkdirs(parent)
         with cd(parent):
-            system('git clone --origin {} {} {}'.format(remote, url, path))
+            clone_cmd = 'git clone --origin {} {} {}'.format(remote, url, path)
+            system(clone_cmd)
             modified = True
     checkout_cmd = 'git -C {} checkout {}'.format(path, sha1)
     try:
-        out, err = capture(checkout_cmd)
+        out, err = capture(checkout_cmd, log=mylog)
     except Exception as e:
         log.debug('SHA1 needed. Fetching.', exc_info=True)
         set_remote(url, remote, path)
-        capture('git -C {} fetch {}'.format(path, remote))
+        capture('git -C {} fetch {}'.format(path, remote), log=mylog)
         modified = True
-        out, err = capture(checkout_cmd)
-    if 'Previous' in err or modified:
+        out, err = capture(checkout_cmd, log=mylog)
+    if 'Previous' in err:
         log.log(info_mod, '{}\n{}'.format(
             checkout_cmd, err.strip()))
     else:
-        log.debug(err.strip())
+        mylog(err.strip())
     if out:
         # This seems to be always empty, but I am not positive.
         log.debug(out.strip())
@@ -222,9 +227,9 @@ def checkout_repo(conf, mirrors_base):
     sha1 = conf['sha1']
     url = conf['url']
     log.debug('checkout_repo at {!r}'.format(path))
-    if not mirrors_base:
-        checkout_repo_from_url(url, sha1, 'origin', path)
-        return
+    #if not mirrors_base:
+    #    checkout_repo_from_url(url, sha1, 'origin', path)
+    #    return
     try:
         if ':' in mirrors_base:
             mirror_url = os.path.join(mirrors_base, path)
@@ -269,8 +274,10 @@ def verify_repo_slow(name, cfg, sha1):
     mkdirs(name)
     with cd(name):
         path = cfg['path']
+        sha1 = cfg['sha1']
+        url = cfg['url']
         log_info_mod('Verifying GitHub repo {} contains {} with a full checkout in a tempdir.'.format(name, sha1))
-        checkout_repo(cfg, None)
+        checkout_repo_from_url(url, sha1, 'origin', path, mylog=log_debug_sys)
 
 def verify_repo_fast(name, cfg, sha1):
     path = cfg['path']
@@ -284,7 +291,9 @@ def verify_repo(name, cfg, sha1):
         verify_repo_fast(name, cfg, sha1)
     except Exception:
         # Someday: Maybe 'git fetch' in case the remote is not up-to-date?
-        log.exception('Failed to verify "{}" the fast way. Trying the slow way...'.format(name))
+        if VERBOSITY >= 4:
+            log.exception('First attempt to verify "{}" failed.'.format(name))
+        log.warning('Failed to verify "{}" the fast way. Trying the slow way...'.format(name))
         with tempdir():
             verify_repo_slow(name, cfg, sha1)
 
