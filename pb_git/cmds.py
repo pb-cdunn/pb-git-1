@@ -321,7 +321,7 @@ def verify(args):
             sha1new = sha1new.strip()
             log.debug('Expecting {} @ {}'.format(path, sha1new))
             sha1s[name] = sha1new
-        verify_repo(name, cfg, sha1s[name])
+            verify_repo(name, cfg, sha1s[name])
 
 def prepare(args):
     """
