@@ -25,6 +25,8 @@ info_sys = logging.INFO+1
 info_basic = logging.INFO+0
 log_info_sys = functools.partial(log.log, info_sys)
 log_info_mod = functools.partial(log.log, info_mod)
+debug_sys = logging.DEBUG+1
+log_debug_sys = functools.partial(log.log, debug_sys)
 cd_depth = 0
 
 @contextmanager
@@ -222,11 +224,21 @@ def get_mirror_dir(cwd, mirrors_base):
     ext, pi = os.path.abspath(cwd).split(os.path.sep)[-2:] # Could be 'ext-vc', 'pivc'.
     return os.path.join(mirrors_base, ext, pi)
 
+def get_sha1(path):
+    stdout, stderr = capture('git -C {} rev-parse HEAD'.format(path), log=log_debug_sys)
+    if stderr.strip():
+        log.debug('stdout="{!r}", stderr="{!r}"'.format(stdout, stderr))
+    return stdout.strip()
+
 def checkout_repo(conf, mirrors_base):
     path = conf['path']
     sha1 = conf['sha1']
     url = conf['url']
-    log.debug('checkout_repo at {!r}'.format(path))
+    sha1_now = get_sha1(path)
+    if sha1_now == sha1:
+        log.info('{} is already on {}'.format(path, sha1))
+        return
+    log_info_mod('checkout_repo at {!r}'.format(path))
     #if not mirrors_base:
     #    checkout_repo_from_url(url, sha1, 'origin', path)
     #    return
