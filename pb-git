@@ -40,16 +40,18 @@ def main(argv):
             help='Checkout all repos described by *.ini files, cloning and fetching as needed.',
             description='Checkout all repos described by *.ini files, cloning and fetching as needed. This will put the repos into "detached HEAD" state, just like git-submodules. Someday, we might add branch support.',
             #aliases=['co'],
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
             )
     p.add_argument('--mirrors',
             default=PB_GIT_DEFAULT_MIRRORS_BASE,
-            help='Clone/fetch from the mirror first. Use this path, plus ext/pi etc. if a directory. [default="%(default)s", which can be over-ridden via PB_GIT_DEFAULT_MIRRORS_BASE]',
+            help='Clone/fetch from the mirror first. Use this path, plus ext/pi etc. if a directory. [default can be over-ridden via PB_GIT_DEFAULT_MIRRORS_BASE]',
             )
     p.set_defaults(func=pb_git.cmds.checkout)
 
     p = subparsers.add_parser('prepare',
             help='Prepare to submit the current changes.',
             description='Prepare to submit the current changes, and `p4 edit` them. Work with intermediate *.ini.bak files. Users may run this command as often as they like. It is perfectly safe always. They must then run `p4 submit` themselves.',
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
             )
     p.add_argument('--no-verify',
             action='store_true',
@@ -60,6 +62,7 @@ def main(argv):
     p = subparsers.add_parser('verify',
             help='Prove that the commit is actually available from a fresh checkout.',
             description='This will become faster when we have caching. Note that `prepare` can call this itself.',
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
             )
     p.set_defaults(func=pb_git.cmds.verify)
 
