@@ -234,10 +234,10 @@ def checkout_repo(conf, mirrors_base):
     path = conf['path']
     sha1 = conf['sha1']
     url = conf['url']
-    sha1_now = get_sha1(path)
-    if sha1_now == sha1:
-        log.info('{} is already on {}'.format(path, sha1))
-        return
+    if os.path.exists(path):
+        if sha1 == get_sha1(path):
+            log.info('{} is already on {}'.format(path, sha1))
+            return
     log_info_mod('checkout_repo at {!r}'.format(path))
     #if not mirrors_base:
     #    checkout_repo_from_url(url, sha1, 'origin', path)
