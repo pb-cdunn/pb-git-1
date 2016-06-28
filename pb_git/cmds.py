@@ -11,6 +11,7 @@ import functools
 import glob
 import logging
 import os
+import re
 import shlex
 import shutil
 import StringIO
@@ -209,16 +210,34 @@ def getgithubname(remote):
     'PacBio/Foo'
     >>> getgithubname('git://github.com/PacBio/Bar')
     'PacBio/Bar'
+    >>> getgithubname('https://45fc7@github.com/PacBio/pbchimera')
+    'PacBio/pbchimera'
     """
-    import re, warnings
+    # From http://github.com/PacificBiosciences/pith/py/util.py
     re_remote = re.compile(r'github\.com.(.*)$')
     githubname = re_remote.search(remote).group(1)
     if githubname.endswith('.git'):
         githubname = githubname[:-4]
     if '/' not in githubname:
-        warnings.warn('%r does not look like a github name. It should be "account/repo". It came from %r'%(
+        log.warning('%r does not look like a github name. It should be "account/repo". It came from %r'%(
             githubname, remote))
     return githubname
+
+def indented_list(vals, indent):
+    return indent + '[\n' + indent*2 + '"' + ('",\n' + indent*2 + '"').join(vals) + '"\n' + indent + ']'
+
+def manifest(cfgs):
+    tree = []
+    for cfg in cfgs:
+        sha1 = cfg['sha1']
+        url = cfg['url']
+        githubname = getgithubname(url)
+        view_url = 'https://github.com/%s/tree/%s' %(
+            githubname, sha1)
+        tree.append(view_url)
+    tree.sort()
+    return indented_list(tree, '    ')
+
 
 def get_mirror_dir(cwd, mirrors_base):
     ext, pi = os.path.abspath(cwd).split(os.path.sep)[-2:] # Could be 'ext-vc', 'pivc'.
@@ -272,6 +291,11 @@ def checkout(args):
         repos = read_modules(args)
         for repo, cfg in repos.iteritems():
             checkout_repo(cfg, args.mirrors)
+        try:
+            with open(args.manifest, 'w') as ofs:
+                ofs.write(manifest(repos.values()))
+        except Exception:
+            log.exception('Unable to write manifest {!r}'.format(args.manifest))
 
 @contextmanager
 def tempdir():

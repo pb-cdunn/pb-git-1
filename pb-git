@@ -46,6 +46,10 @@ def main(argv):
             default=PB_GIT_DEFAULT_MIRRORS_BASE,
             help='Clone/fetch from the mirror first. Use this path, plus ext/pi etc. if a directory. [default can be over-ridden via PB_GIT_DEFAULT_MIRRORS_BASE]',
             )
+    p.add_argument('--manifest',
+            default='git-manifest.json',
+            help='Dump a file to show what we checked out. By default, this will go into the --directory.',
+            )
     p.set_defaults(func=pb_git.cmds.checkout)
 
     p = subparsers.add_parser('prepare',
