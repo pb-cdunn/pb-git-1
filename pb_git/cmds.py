@@ -289,7 +289,7 @@ def checkout(args):
     with cd(args.directory):
         # Directories are relative to the location of ini files, for now.
         repos = read_modules(args)
-        for repo, cfg in repos.iteritems():
+        for repo, cfg in sorted(repos.iteritems()):
             checkout_repo(cfg, args.mirrors)
         try:
             with open(args.manifest, 'w') as ofs:
