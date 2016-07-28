@@ -190,7 +190,7 @@ def checkout_repo_from_url(url, sha1, remote, path, mylog=log_info_sys):
     except Exception as e:
         log.debug('SHA1 needed. Fetching.', exc_info=True)
         set_remote(url, remote, path)
-        capture('git -C {} fetch {}'.format(path, remote), log=mylog)
+        system('git -C {} fetch {}'.format(path, remote))
         modified = True
         out, err = capture(checkout_cmd, log=mylog)
     if 'Previous' in err:
