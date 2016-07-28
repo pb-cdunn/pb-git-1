@@ -248,7 +248,7 @@ def get_sha1(path):
         log.debug('stdout="{!r}", stderr="{!r}"'.format(stdout, stderr))
     return stdout.strip()
 
-def checkout_repo(conf, mirrors_base):
+def _checkout_repo(conf, mirrors_base):
     path = conf['path']
     sha1 = conf['sha1']
     url = conf['url']
@@ -274,6 +274,16 @@ def checkout_repo(conf, mirrors_base):
         log.warning('Failed to checkout "{}" from mirror "{}". Mirror repo is unavailable or not yet up-to-date. But GitHub checkout should still work.'.format(
             path, mirror_url))
         checkout_repo_from_url(url, sha1, 'origin', path)
+
+def update_submodules(path):
+    cmd = 'git -C {} submodule update --init --remote --recursive --depth 1'.format(path)
+    system(cmd)
+
+def checkout_repo(conf, mirrors_base):
+    _checkout_repo(conf, mirrors_base)
+    if 'submodules' in conf:
+        path = conf['path']
+        update_submodules(path)
 
 def checkout(args):
     init(args)
@@ -305,6 +315,7 @@ def verify_repo_slow(name, cfg, sha1):
         url = cfg['url']
         log_info_mod('Verifying GitHub repo {} contains {} with a full checkout in a tempdir.'.format(name, sha1))
         checkout_repo_from_url(url, sha1, 'origin', path, mylog=log_debug_sys)
+        # TODO: Verify submodules too, if necessary.
 
 def verify_repo_fast(name, cfg, sha1):
     path = cfg['path']
