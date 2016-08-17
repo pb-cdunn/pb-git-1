@@ -212,15 +212,21 @@ def getgithubname(remote):
     >>> getgithubname('https://45fc7@github.com/PacBio/pbchimera')
     'PacBio/pbchimera'
     """
-    # From http://github.com/PacificBiosciences/pith/py/util.py
-    re_remote = re.compile(r'github\.com.(.*)$')
-    githubname = re_remote.search(remote).group(1)
-    if githubname.endswith('.git'):
-        githubname = githubname[:-4]
-    if '/' not in githubname:
-        log.warning('%r does not look like a github name. It should be "account/repo". It came from %r'%(
-            githubname, remote))
-    return githubname
+    repo = ""
+    if "github" in remote:
+        # From http://github.com/PacificBiosciences/pith/py/util.py
+        re_remote = re.compile(r'github\.com.(.*)$')
+        repo = re_remote.search(remote).group(1)
+    elif "bitbucket" in remote:
+        re_remote = re.compile(r'.*bitbucket[^/]*/(.*)$')
+        repo = re_remote.search(remote).group(1)
+
+    if repo.endswith('.git'):
+        repo = repo[:-4]
+    if '/' not in repo:
+        log.warning('%r does not look like a git repository name. It should be "account/repo". It came from %r'%(
+            repo, remote))
+    return repo
 
 def indented_list(vals, indent):
     return indent + '[\n' + indent*2 + '"' + ('",\n' + indent*2 + '"').join(vals) + '"\n' + indent + ']'
