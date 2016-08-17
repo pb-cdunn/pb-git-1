@@ -1,3 +1,4 @@
 test:
   override:
-    - nosetests -v 
+    - nosetests -v test/test_all.py
+    - nosetests -v --with-doctest pb_git/cmds.py
