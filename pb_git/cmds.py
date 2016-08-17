@@ -222,42 +222,6 @@ def getgithubname(remote):
             githubname, remote))
     return githubname
 
-def get_view_url_github(url, sha1):
-    """
-    >>> get_view_url_github('git://github.com/PacBio/Bar', 'abcde')
-    'https://github.com/PacBio/Bar/tree/abcde'
-    """
-    githubname = getgithubname(url)
-    view_url = 'https://github.com/%s/tree/%s' %(
-        githubname, sha1)
-    return view_url
-
-def get_bitbucket_project_and_repo(remote):
-    """
-    >>> get_bitbucket_project_and_repo('ssh://git@bitbucket.nanofluidics.com:7999/sat/bam2fastx.git')
-    ['sat', 'bam2fastx']
-    """
-    re_remote = re.compile(r'bitbucket[^/]*/(.*)')
-    projreponame = re_remote.search(remote).group(1)
-    if projreponame.endswith('.git'):
-        projreponame = projreponame[:-4]
-    return projreponame.split('/')
-
-def get_view_url_bitbucket(url, sha1):
-    """
-    >>> get_view_url_bitbucket('ssh://git@bitbucket.nanofluidics.com:7999/sat/bam2fastx.git', 'abcde')
-    'http://bitbucket.nanofluidics.com:7990/projects/sat/repos/bam2fastx/browse?at=abcde'
-    """
-    project, repo = get_bitbucket_project_and_repo(url)
-    view_url = 'http://bitbucket.nanofluidics.com:7990/projects/{project}/repos/{repo}/browse?at={sha1}'.format(**locals())
-    return view_url
-
-def get_view_url(url, sha1):
-    if 'bitbucket' in url:
-        return get_view_url_bitbucket(url, sha1)
-    else:
-        return get_view_url_github(url, sha1)
-
 def indented_list(vals, indent):
     return indent + '[\n' + indent*2 + '"' + ('",\n' + indent*2 + '"').join(vals) + '"\n' + indent + ']'
 
@@ -266,7 +230,9 @@ def manifest(cfgs):
     for cfg in cfgs:
         sha1 = cfg['sha1']
         url = cfg['url']
-        view_url = get_view_url(url, sha1)
+        githubname = getgithubname(url)
+        view_url = 'https://github.com/%s/tree/%s' %(
+            githubname, sha1)
         tree.append(view_url)
     tree.sort()
     return indented_list(tree, '    ')
