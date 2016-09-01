@@ -277,6 +277,17 @@ def manifest(cfgs):
     tree.sort()
     return indented_list(tree, '    ')
 
+def csv_manifest(cfgs):
+    tree = []
+    for cfg in cfgs:
+        path = cfg['path']
+        sha1 = cfg['sha1']
+        url = cfg['url']
+        view_url = get_view_url(url, sha1)
+        tree.append(','.join([path, view_url]))
+    tree.sort()
+    return '\n'.join(tree) + '\n'
+
 
 def get_mirror_dir(cwd, mirrors_base):
     ext, pi = os.path.abspath(cwd).split(os.path.sep)[-2:] # Could be 'ext-vc', 'pivc'.
@@ -335,8 +346,10 @@ def checkout(args):
         try:
             with open(args.manifest, 'w') as ofs:
                 ofs.write(manifest(repos.values()))
+            with open(args.csv, 'w') as ofs:
+                ofs.write(csv_manifest(repos.values()))
         except Exception:
-            log.exception('Unable to write manifest {!r}'.format(args.manifest))
+            log.exception('Unable to write manifests {!r} {!r}'.format(args.manifest, args.csv))
 
 @contextmanager
 def tempdir():

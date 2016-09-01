@@ -48,7 +48,11 @@ def main(argv):
             )
     p.add_argument('--manifest',
             default='git-manifest.json',
-            help='Dump a file to show what we checked out. By default, this will go into the --directory.',
+            help='Dump a file to show what we checked out. By default, this will go into the --directory. (Deprecated. Probably not used anymore, but not sure.)',
+            )
+    p.add_argument('--csv',
+            default='git-manifest.csv',
+            help='Dump a file to show what we checked out. By default, this will go into the --directory. (csv for easy parsing by bash.)',
             )
     p.set_defaults(func=pb_git.cmds.checkout)
 
