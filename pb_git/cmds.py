@@ -328,7 +328,13 @@ def _checkout_repo(conf, mirrors_base):
 
 def update_submodules(path):
     cmd = 'git -C {} submodule update --init --remote --recursive'.format(path)
-    system(cmd)
+    try:
+        system(cmd)
+    except Exception:
+        log.exception("We will remove all submodules and retry.")
+        system('git -C {} submodule deinit -f .'.format(path))
+        system('rm -rf {}/.git/modules'.format(path))
+        system(cmd)
 
 def checkout_repo(conf, mirrors_base):
     _checkout_repo(conf, mirrors_base)
