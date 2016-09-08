@@ -178,9 +178,16 @@ def checkout_repo_from_url(url, sha1, remote, path, mylog=log_info_sys):
     """Probably from GitHub.
     """
     modified = False
-    if not os.path.exists(path):
+    if not os.path.exists(os.path.join(path, '.git', 'config')):
         clone_cmd = 'git clone --origin {} {} {}'.format(remote, url, path)
-        out, err = capture(clone_cmd, log=mylog)
+        try:
+            out, err = capture(clone_cmd, log=mylog)
+        except Exception:
+            if not os.path.exists(os.path.join(path, '.git')):
+                raise
+            log.exception('For some reason, we cannot clone. Possibly there was a "perforce quick clean", which removes files but not directories. Since the .git/ directory exists but not .git/config, we will remove the entire tree, for there was clearly a snafu.')
+            system('rm -rf {}'.format(path))
+            out, err = capture(clone_cmd, log=mylog)
         if out.strip():
             log.info(out.strip())
         modified = True
@@ -303,7 +310,7 @@ def _checkout_repo(conf, mirrors_base):
     path = conf['path']
     sha1 = conf['sha1']
     url = conf['url']
-    if os.path.exists(path):
+    if os.path.exists(os.path.join(path, '.git', 'config')):
         if sha1 == get_sha1(path):
             log.info('{} is already on {}'.format(path, sha1))
             return
