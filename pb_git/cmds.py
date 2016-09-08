@@ -327,7 +327,7 @@ def _checkout_repo(conf, mirrors_base):
         checkout_repo_from_url(url, sha1, 'origin', path)
 
 def update_submodules(path):
-    cmd = 'git -C {} submodule update --init --remote --recursive --depth 1'.format(path)
+    cmd = 'git -C {} submodule update --init --remote --recursive'.format(path)
     system(cmd)
 
 def checkout_repo(conf, mirrors_base):
