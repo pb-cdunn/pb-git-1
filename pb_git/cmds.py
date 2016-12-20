@@ -315,9 +315,10 @@ def _checkout_repo(conf, mirrors_base):
             log.info('{} is already on {}'.format(path, sha1))
             return
     log_info_mod('checkout_repo at {!r}'.format(path))
-    #if not mirrors_base:
-    #    checkout_repo_from_url(url, sha1, 'origin', path)
-    #    return
+    if 'nanofluidics' in url:
+        # This is repo is already in local BitBucket, so do not bother with the mirror.
+        checkout_repo_from_url(url, sha1, 'origin', path)
+        return
     try:
         if ':' in mirrors_base:
             mirror_url = os.path.join(mirrors_base, path)
